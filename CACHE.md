@@ -363,6 +363,12 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 
 ## Co dalej
 
+**Do zrobienia (zgłoszone przez użytkownika):**
+- [ ] **Budżet: rozdzielenie szacunków od faktycznych wydatków** — `budget.service.ts` traktuje WSZYSTKIE materiały (w tym AI-generowane szacunki) jako faktyczne wydatki. Fix: liczyć do "Wydano" tylko materiały z `purchased=1`. Dodać UI do oznaczania jako "kupione" + pole na faktyczną cenę. Zaktualizować karty budżetu (szacunki vs wydatki).
+- [ ] **Lista zakupów → zakup → magazyn** — W InventoryPage lista zakupów nie ma opcji oznaczenia pozycji jako kupionej z podaniem ilości, co automatycznie dodałoby stan do magazynu (qty adjust). Potrzebny przycisk "Kupiono" z inputem ilości + auto-update `inventory_items.quantity` i `task_materials.purchased=1`.
+- [ ] **Mobile: Admin nie ma dostępu do logowania czasu** — `AdminTasksScreen` nie nawiguje do `TaskDetailScreen` (brak `onPress` na kartach zadań). Admin nie może logować czasu, zmieniać statusu ani widzieć szczegółów. Fix: dodać nawigację do `AdminTaskDetail` + statusy ujednolicić (`pending`→`todo`, `completed`→`done`).
+- [ ] **Mobile: Admin widzi tylko pracowników, nie siebie** — lista aktywnych użytkowników filtruje po roli `worker`, pomijając adminów. Admin przypisany do zadania nie widzi się na liście.
+
 **Etap 2 (web):** 2.6 Google Calendar Sync (jedyny niezrobiony moduł).
 
 **Etap 3 (mobile — GOTOWY):**
