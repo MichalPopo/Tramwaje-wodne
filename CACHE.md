@@ -11,14 +11,17 @@
 |----------|---------|
 | **Aktualny etap** | Etap 2 (2.1–2.5 ✅) + Etap 3 Mobile ✅ (3.1–3.7 gotowe) |
 | **Testy** | 240/240 passing (~9s) — 12 plików testowych |
-| **Serwer działa** | TAK — backend :3001 (0.0.0.0 LAN), frontend :5173, START.bat |
+| **Serwer działa** | TAK — backend Render (tramwaje-wodne-api.onrender.com), frontend GH Pages, baza Turso |
 | **Mobile** | ✅ Expo SDK 55, standalone APK (embedded JS bundle), offline SQLite, sync WiFi, notifications |
 | **APK build** | ✅ BUILD_APK.bat (one-click: export bundle + Gradle assembleDebug) |
 | **Seeded users** | admin@tramwajewodne.pl / Kapitan123!, pracownik@tramwajewodne.pl / Kapitan123! |
-| **Klucze API** | ✅ Gemini: w .env (GEMINI_API_KEY), ✅ Open-Meteo: nie wymaga klucza |
-| **Deploy** | Folder deploy/ + PWA manifest + Cloudflare Tunnel (quick tunnel działa) |
-| **Firewall** | ✅ Reguła "Tramwaje Wodne API" — port 3001 TCP (incoming) |
-| **Ostatnia aktualizacja** | 2026-03-11T20:45:00+01:00 |
+| **Klucze API** | ✅ Gemini: pool kluczy (key-pool.service.ts), ✅ Open-Meteo: nie wymaga klucza |
+| **Deploy** | ✅ **Render** (backend), ✅ **GitHub Pages** (frontend SPA), ✅ **Turso** (baza danych) |
+| **Frontend URL** | https://michalpopo.github.io/Tramwaje-wodne/ |
+| **Backend URL** | https://tramwaje-wodne-api.onrender.com |
+| **DB URL** | libsql://tramwaje-wodne-michalpopo.aws-eu-west-1.turso.io |
+| **Firewall** | ✅ Reguła "Tramwaje Wodne API" — port 3001 TCP (incoming, dev only) |
+| **Ostatnia aktualizacja** | 2026-03-18T22:20:00+01:00 |
 
 ### Feature map — co jest zrobione
 
@@ -47,8 +50,11 @@
 | 2.5 | Budżet i koszty | ✅ | budget.service.ts (5 agregacji: task/ship/category/season/monthly + actual_unit_price), budget.routes.ts (7 endpointów), BudgetPage.tsx/css (karty, Canvas wykresy, config editor) |
 | — | Audyt #9 (5 fixów) | ✅ | attachment RBAC, nav flex-wrap, schema renumbered 1-20, worker equipment link, changePassword (service+route+API+TeamPage modal) |
 | — | Zarządzanie pracownikami (TeamPage) | ✅ | TeamPage.tsx (tabela, toggle active, zmiana hasła, link z nav), auth.routes.ts (PATCH /users/:id/password) |
-| — | PWA manifest | ✅ | manifest.json, sw.js, icon-512.png, meta tagi w index.html |
-| — | Deployment package | ✅ | deploy/ (.env.production, Caddyfile, ecosystem.config.cjs, deploy.sh, setup-server.sh, README.md) |
+| — | PWA manifest | ✅ | manifest.json, icon-512.png, meta tagi w index.html (scope: /Tramwaje-wodne/) |
+| — | Deployment (Render+GH Pages) | ✅ | render.yaml, GH Actions deploy, Turso cloud DB, CORS, SPA 404→index.html trick |
+| — | SPA Routing fix | ✅ | Zamiana `<a href>` → `<Link to>` w 9 plikach Page (21 linków), basename `/Tramwaje-wodne/` |
+| — | Missing await fix | ✅ | 26 brakujących `await` w 5 route files (api-keys, engine-hours, inventory, supplier, task) |
+| — | Seed idempotency | ✅ | database.ts — seed.sql uruchamia się TYLKO na pustą bazę (sprawdzenie users count) |
 | — | START.bat | ✅ | Double-click start (API + frontend) |
 | — | BUILD_APK.bat | ✅ | One-click: export JS bundle + Gradle assembleDebug → standalone APK |
 
@@ -71,7 +77,7 @@ D:\TramwajeWodne\
 │   └── src\
 │       ├── index.ts               # Express — montuje 12 routerów: auth, task, ai, weather, ships, inventory, attachments, config, certificates, equipment, suppliers, budget
 │       ├── db\
-│       │   ├── database.ts        # sql.js wrapper + db.exec() + programmatic seeds
+│       │   ├── database.ts        # Turso/libsql client + conditional seed (only on empty DB)
 │       │   ├── schema.sql         # 21 tabel (users, ships, tasks, task_assignments, task_dependencies, time_logs, attachments, inventory_items, task_materials, ai_conversations, ai_messages, weather_cache, config, certificates, inspection_templates, inspections, equipment, instructions, instruction_steps, suppliers, supplier_inventory)
 │       │   └── seed.sql           # 2 statki, 9 zadań, 2 użytkowników, 5 narzędzi, 4 certyfikaty, 2 szablony inspekcji, 5 urządzeń, 1 instrukcja, 4 dostawców
 │       ├── middleware\
@@ -85,7 +91,7 @@ D:\TramwajeWodne\
 │       │   ├── ship.routes.ts     # GET list, detail; POST/PUT/DELETE (admin, ship CRUD)
 │       │   ├── inventory.routes.ts # 11 endpointów: CRUD, quantity, materials, shopping list
 │       │   ├── attachment.routes.ts # POST upload (base64), GET list/detail, DELETE
-│       │   ├── config.routes.ts   # GET/PUT key-value config (np. season_start)
+│       │   ├── config.routes.ts   # GET/PUT key-value config (np. season_start) — GET zwraca '' dla brakujących kluczy
 │       │   ├── certificate.routes.ts # CRUD certyfikatów, /expiring, /scan (AI Vision), inspekcje
 │       │   └── equipment.routes.ts   # ★ CRUD urządzeń + instrukcji, QR gen, AI format instrukcji
 │       │   └── supplier.routes.ts    # ★ CRUD dostawców, powiązania z magazynem, lista zakupów wg dostawców
@@ -123,7 +129,7 @@ D:\TramwajeWodne\
 │   └── README.md                  # ★ Instrukcja Cloudflare Tunnel krok-po-kroku
 ├── client\
 │   ├── package.json               # Vite + React + TS
-│   ├── vite.config.ts             # proxy /api → :3001
+│   ├── vite.config.ts             # base: /Tramwaje-wodne/, proxy /api → :3001 (dev)
 │   └── src\
 │       ├── index.css              # ★ Design system (dark maritime, 404 lines)
 │       ├── api.ts                 # ★ Typed API client (auth, tasks, ships, weather, ai, inventory, attachments, config, certificates, inspections, equipment, instructions, suppliers, changePassword)
@@ -316,6 +322,18 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 53. ✅ Lista zakupów (Niedoszacowanie) — naprawiono błędne grupowanie w `inventory.service.ts` i `supplier.service.ts` (groupBy ignorowało `inventory_id` na rzecz nazwy własnej).
 54. ✅ `schema.sql` ON DELETE CASCADE — uzupełniono brakujące kaskady dla `certificates`, `inspection_templates`, `inspections`.
 
+### Sesja 2026-03-18 — Deploy produkcyjny (10 fixów)
+55. ✅ SPA routing — zamiana 21 `<a href>` → `<Link to>` w 9 plikach Page (DashboardPage, WorkerPage, TanksPage, SuppliersPage, SettingsPage, InventoryPage, EquipmentPage, EngineHoursPage, CertificatesPage)
+56. ✅ Missing `await` — 26 brakujących `await` async service calls w 5 route files → `.map()` crash na każdej stronie
+57. ✅ PWA manifest paths — icon-512.png i manifest.json bez `/Tramwaje-wodne/` prefix → 404
+58. ✅ Service Worker 404 — rejestracja `/sw.js` który nie istnieje → usunięta
+59. ✅ Deprecated meta tag — `apple-mobile-web-app-capable` → `mobile-web-app-capable`
+60. ✅ Config 404 spam — `season_start` zwracał 404 zamiast pustego stringa → 10+ błędów w konsoli
+61. ✅ Certificate route ordering — `GET /:id` łapał `/inspections` (NaN → 400) → `next()` dla non-numeric
+62. ✅ Seed re-insert — `seed.sql` uruchamiał się przy każdym restarcie, wstawiając usunięte dane od nowa → conditional seed (only on empty DB)
+63. ✅ Render deploy — render.yaml, CORS origin config, GH Actions workflow client deploy
+64. ✅ Turso migration — sql.js → @libsql/client, persistent cloud database
+
 ---
 
 ## Szczegóły implementacji kluczowych komponentów
@@ -358,14 +376,16 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 - ✅ 3.7 Standalone APK: embedded JS bundle, BUILD_APK.bat, działa bez Metro
 - Brakuje: Firebase Cloud Messaging, kompresja zdjęć, podpis release APK
 
-**Server CORS:** `origin: true` w dev mode (pozwala na połączenia z telefonu po WiFi)
+**Server CORS:** Produkcja: `origin: [GH Pages URL, localhost:5173]` — Dev: `origin: true`
 **Server bind:** `0.0.0.0` (dostępny z LAN, nie tylko localhost)
 
 **Znane problemy:**
 - Lint warnings: `string | string[]` w Express route params (nie blokuje runtime — tsx transpiluje)
-- Gemini API quota — free tier limit 0 na gemini-2.0-flash (naprawione: teraz używa 2.5-flash-lite)
+- Gemini API quota — pool kluczy z cooldown (key-pool.service.ts)
 - Weekendy traktowane jako dni robocze (zgodnie z branżą)
 - Gantt: wiele zadań per osoba per dzień → automatycznie rozkładane na kolejne dni (capacity 1/os/dzień)
+- GH Pages SPA: `GET /Tramwaje-vodne/someRoute` zwraca 404 w Network tab — to normalne (404.html = index.html trick)
+- Render free tier: serwer usypia po 15 min bezczynności, pierwszy request trwa ~30s
 
 ---
 
