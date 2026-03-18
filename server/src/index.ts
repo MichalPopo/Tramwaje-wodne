@@ -126,11 +126,12 @@ process.on('SIGTERM', shutdown);
 export { app };
 
 // Only start server when run directly (not when imported for tests)
-// Matches both: tsx src/index.ts (dev) and node dist/index.js (prod)
+// Matches both: tsx src/index.ts (dev) and node dist/server/src/index.js (prod)
 const entryFile = process.argv[1] ?? '';
+const normalizedEntry = entryFile.replace(/\\/g, '/');
 const isMainModule =
-    entryFile.replace(/\\/g, '/').endsWith('src/index.ts') ||
-    entryFile.replace(/\\/g, '/').endsWith('dist/index.js');
+    normalizedEntry.endsWith('src/index.ts') ||
+    normalizedEntry.endsWith('src/index.js');
 if (isMainModule) {
     start();
 }
