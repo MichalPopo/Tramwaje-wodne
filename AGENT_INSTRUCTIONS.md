@@ -52,6 +52,7 @@ W tym projekcie istnieją **3 pliki źródłowe**, które stanowią fundament na
    - CACHE.md (nowe pliki, endpointy, bugi)
    - TASKS.md (oznacz [x] to co zrobione)
 6. NA KONIEC SESJI upewnij się, że CACHE.md jest aktualny
+7. PO UKOŃCZENIU ZADAŃ: Wypchnij wszystkie zmiany na GitHuba (komendy `git add .`, `git commit -m "Opis"` oraz `git push origin main`)
 ```
 
 ---
@@ -63,6 +64,7 @@ W tym projekcie istnieją **3 pliki źródłowe**, które stanowią fundament na
 3. **Implementowanie bez sprawdzenia feature_map** — możesz pominąć wymagane sub-funkcje
 4. **Hardkodowanie wartości** zamiast konfiguracji (np. data sezonu była hardcoded)
 5. **Zapominanie o testach** — nie oznaczaj tasku jako done bez `npx vitest run`
+6. **Brak synchronizacji z chmurą** — pamiętaj o rutynowym `git push` po zrealizowaniu checkpointu, aby User nie stracił kodu w razie awarii.
 
 ---
 
