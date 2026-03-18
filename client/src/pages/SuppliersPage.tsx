@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import {
     suppliersApi, inventoryApi, type Supplier, type SupplierDetail, type SupplierInventoryLink,
@@ -197,14 +198,14 @@ export default function SuppliersPage() {
             {/* Header */}
             <header className="dash-header">
                 <div className="dash-header-left">
-                    <a href="/" className="dash-logo">⚓</a>
+                    <Link to="/" className="dash-logo">⚓</Link>
                     <div>
                         <h1 className="dash-title">Dostawcy</h1>
                         <p className="dash-subtitle">Baza dostawców i optymalizacja zakupów</p>
                     </div>
                 </div>
                 <div className="dash-header-right">
-                    <a href="/" className="btn btn-ghost btn-sm">← Dashboard</a>
+                    <Link to="/" className="btn btn-ghost btn-sm">← Dashboard</Link>
                     <div className="dash-user">
                         <span className="dash-user-name">{user?.name}</span>
                     </div>

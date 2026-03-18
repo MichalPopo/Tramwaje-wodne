@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { tanksApi, type Tank, type TankAlert } from '../api';
 
@@ -72,7 +73,7 @@ export default function TanksPage() {
                     <h1>⛽ Zbiorniki i zużycie</h1>
                     <p className="page-subtitle">Moduł 2.10 — Paliwo, woda pitna, nieczystości</p>
                 </div>
-                <a href="/dashboard" className="btn btn-ghost btn-sm">← Dashboard</a>
+                <Link to="/dashboard" className="btn btn-ghost btn-sm">← Dashboard</Link>
             </header>
 
             {/* Alerts */}

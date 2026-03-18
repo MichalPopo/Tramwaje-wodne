@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { inventoryApi, shipsApi, type InventoryItem, type ShoppingListItem, type Ship } from '../api';
 import AiChat from '../components/AiChat';
@@ -138,14 +139,14 @@ export default function InventoryPage() {
             {/* Header */}
             <header className="dash-header">
                 <div className="dash-header-left">
-                    <a href="/" className="dash-logo">⚓</a>
+                    <Link to="/" className="dash-logo">⚓</Link>
                     <div>
                         <h1 className="dash-title">Magazyn</h1>
                         <p className="dash-subtitle">Narzędzia, materiały, części</p>
                     </div>
                 </div>
                 <div className="dash-header-right">
-                    <a href={user?.role === 'admin' ? '/dashboard' : '/worker'} className="btn btn-ghost btn-sm">← Powrót</a>
+                    <Link to={user?.role === 'admin' ? '/dashboard' : '/worker'} className="btn btn-ghost btn-sm">← Powrót</Link>
                     <div className="dash-user">
                         <span className="dash-user-name">{user?.name}</span>
                     </div>

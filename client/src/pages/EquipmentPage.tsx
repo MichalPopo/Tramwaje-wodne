@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { equipmentApi, instructionsApi, shipsApi, type Equipment, type Instruction, type InstructionStep, type Ship } from '../api';
 import './EquipmentPage.css';
@@ -211,7 +212,7 @@ export default function EquipmentPage() {
 
     return (
         <div className="page-container eq-page">
-            <a href="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: '0.5rem', alignSelf: 'flex-start' }}>← Dashboard</a>
+            <Link to="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: '0.5rem', alignSelf: 'flex-start' }}>← Dashboard</Link>
             <div className="eq-top-row">
                 <h1 className="page-title">🔧 Sprzęt i instrukcje</h1>
                 <select className="input eq-ship-filter" value={shipFilter} onChange={e => setShipFilter(e.target.value)}>

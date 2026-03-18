@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { tasksApi, configApi, type TaskSummary, type TaskDetail } from '../api';
 import AiChat from '../components/AiChat';
@@ -201,16 +202,16 @@ export default function DashboardPage() {
                     </div>
                 </div>
                 <div className="dash-header-right">
-                    <a href="/gantt" className="btn btn-ghost btn-sm">📊 Gantt</a>
-                    <a href="/certificates" className="btn btn-ghost btn-sm">📜 Certyfikaty</a>
-                    <a href="/equipment" className="btn btn-ghost btn-sm">🔧 Sprzęt</a>
-                    <a href="/inventory" className="btn btn-ghost btn-sm">📦 Magazyn</a>
-                    <a href="/suppliers" className="btn btn-ghost btn-sm">🏪 Dostawcy</a>
-                    <a href="/budget" className="btn btn-ghost btn-sm">💰 Budżet</a>
-                    <a href="/engine-hours" className="btn btn-ghost btn-sm">⚙️ Motogodziny</a>
-                    <a href="/tanks" className="btn btn-ghost btn-sm">⛽ Zbiorniki</a>
-                    <a href="/team" className="btn btn-ghost btn-sm">👥 Zespół</a>
-                    <a href="/settings" className="btn btn-ghost btn-sm">⚙️ Ustawienia</a>
+                    <Link to="/gantt" className="btn btn-ghost btn-sm">📊 Gantt</Link>
+                    <Link to="/certificates" className="btn btn-ghost btn-sm">📜 Certyfikaty</Link>
+                    <Link to="/equipment" className="btn btn-ghost btn-sm">🔧 Sprzęt</Link>
+                    <Link to="/inventory" className="btn btn-ghost btn-sm">📦 Magazyn</Link>
+                    <Link to="/suppliers" className="btn btn-ghost btn-sm">🏪 Dostawcy</Link>
+                    <Link to="/budget" className="btn btn-ghost btn-sm">💰 Budżet</Link>
+                    <Link to="/engine-hours" className="btn btn-ghost btn-sm">⚙️ Motogodziny</Link>
+                    <Link to="/tanks" className="btn btn-ghost btn-sm">⛽ Zbiorniki</Link>
+                    <Link to="/team" className="btn btn-ghost btn-sm">👥 Zespół</Link>
+                    <Link to="/settings" className="btn btn-ghost btn-sm">⚙️ Ustawienia</Link>
                     <div className="dash-user">
                         <span className="dash-user-name">{user?.name}</span>
                         <span className="badge badge-todo">{user?.role}</span>

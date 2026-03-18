@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import {
     certificatesApi,
@@ -236,7 +237,7 @@ export default function CertificatesPage() {
 
     return (
         <div className="page-container cert-page">
-            <a href="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: '0.5rem', alignSelf: 'flex-start' }}>← Dashboard</a>
+            <Link to="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: '0.5rem', alignSelf: 'flex-start' }}>← Dashboard</Link>
             <div className="cert-top-row">
                 <h1 className="page-title">📜 Certyfikaty i inspekcje</h1>
                 <select className="input cert-ship-filter" value={shipFilter} onChange={e => setShipFilter(e.target.value)}>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { tasksApi, attachmentApi, type TaskSummary, type TaskDetail, type AttachmentInfo } from '../api';
 import AiChat from '../components/AiChat';
@@ -157,8 +158,8 @@ export default function WorkerPage() {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <a href="/inventory" className="btn btn-ghost btn-sm">📦 Magazyn</a>
-                    <a href="/equipment" className="btn btn-ghost btn-sm">🔧 Sprzęt</a>
+                    <Link to="/inventory" className="btn btn-ghost btn-sm">📦 Magazyn</Link>
+                    <Link to="/equipment" className="btn btn-ghost btn-sm">🔧 Sprzęt</Link>
                     <button className="btn btn-ghost btn-sm" onClick={logout}>Wyloguj</button>
                 </div>
             </header>

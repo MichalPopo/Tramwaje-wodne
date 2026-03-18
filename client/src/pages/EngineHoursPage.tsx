@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { engineHoursApi, type EngineHoursEntry, type ServiceInterval, type ServiceAlert, type ServiceLog } from '../api';
 
@@ -64,7 +65,7 @@ export default function EngineHoursPage() {
                     <h1>⚙️ Motogodziny i serwis</h1>
                     <p className="page-subtitle">Moduł 2.9 — Liczniki godzin pracy, interwały serwisowe, historia serwisów</p>
                 </div>
-                <a href="/dashboard" className="btn btn-ghost btn-sm">← Dashboard</a>
+                <Link to="/dashboard" className="btn btn-ghost btn-sm">← Dashboard</Link>
             </header>
 
             {/* Alerts */}

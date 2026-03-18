@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { apiKeysApi, configApi, type ApiKeyStatus } from '../api';
 import './SettingsPage.css';
@@ -83,7 +84,7 @@ export default function SettingsPage() {
                         <p className="dash-subtitle">Konfiguracja systemu</p>
                     </div>
                 </div>
-                <a href="/dashboard" className="btn btn-ghost btn-sm">← Dashboard</a>
+                <Link to="/dashboard" className="btn btn-ghost btn-sm">← Dashboard</Link>
             </header>
 
             <main className="settings-content container">
