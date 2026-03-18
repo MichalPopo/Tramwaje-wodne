@@ -16,26 +16,12 @@ const SEED_PATH = join(__dirname, 'seed.sql');
  * Uses Turso (cloud) in production, local file in dev, in-memory for tests.
  */
 export async function initDatabase(): Promise<Client> {
-    // Read env vars
-    let url = process.env.TURSO_DATABASE_URL || 'file:data/tramwajewodne.db';
-    let authToken = process.env.TURSO_AUTH_TOKEN;
-
-    // Auto-detect swapped env vars: if URL looks like a JWT token, swap them
-    if (url && !url.startsWith('libsql://') && !url.startsWith('file:') && authToken?.startsWith('libsql://')) {
-        console.log('[DB] ⚠️ Env vars appear swapped — auto-correcting');
-        [url, authToken] = [authToken, url];
-    }
-
-    // If URL still doesn't look right but we have a libsql URL somewhere, try both vars
-    if (!url.startsWith('libsql://') && !url.startsWith('file:')) {
-        // Check if maybe the token var has the URL
-        if (authToken?.startsWith('libsql://')) {
-            console.log('[DB] ⚠️ URL found in AUTH_TOKEN — swapping');
-            [url, authToken] = [authToken, url];
-        } else {
-            console.log('[DB] ⚠️ No valid URL found in either var, using URL as-is');
-        }
-    }
+    // Use new env var names (TURSO_DB_URL / TURSO_DB_TOKEN) with fallback to old names
+    const url = process.env.TURSO_DB_URL
+        || process.env.TURSO_DATABASE_URL
+        || 'file:data/tramwajewodne.db';
+    const authToken = process.env.TURSO_DB_TOKEN
+        || process.env.TURSO_AUTH_TOKEN;
 
     console.log('[DB] Using URL:', url.slice(0, 50));
     console.log('[DB] Auth token:', authToken ? 'set (' + authToken.length + ' chars)' : '(not set)');
