@@ -16,8 +16,8 @@ router.use(authMiddleware);
  * GET /api/engine-hours
  * List all engine hours counters
  */
-router.get('/', (_req, res) => {
-    const entries = listEngineHours();
+router.get('/', async (_req, res) => {
+    const entries = await listEngineHours();
     res.json({ engine_hours: entries });
 });
 
@@ -26,13 +26,13 @@ router.get('/', (_req, res) => {
  * Create a new engine hours counter (admin only)
  * Body: { equipment_id: number, initial_hours?: number }
  */
-router.post('/', roleGuard('admin'), (req, res) => {
+router.post('/', roleGuard('admin'), async (req, res) => {
     const { equipment_id, initial_hours } = req.body;
     if (!equipment_id || typeof equipment_id !== 'number') {
         return res.status(400).json({ error: 'equipment_id jest wymagany' });
     }
 
-    const entry = createEngineHours(equipment_id, initial_hours ?? 0);
+    const entry = await createEngineHours(equipment_id, initial_hours ?? 0);
     if (!entry) {
         return res.status(404).json({ error: 'Urządzenie nie znalezione' });
     }
@@ -44,7 +44,7 @@ router.post('/', roleGuard('admin'), (req, res) => {
  * Update engine hours (set absolute value)
  * Body: { hours: number }
  */
-router.put('/:equipmentId', roleGuard('admin'), (req, res) => {
+router.put('/:equipmentId', roleGuard('admin'), async (req, res) => {
     const equipmentId = parseInt(req.params.equipmentId as string, 10);
     const { hours } = req.body;
 
@@ -52,7 +52,7 @@ router.put('/:equipmentId', roleGuard('admin'), (req, res) => {
         return res.status(400).json({ error: 'hours musi być liczbą >= 0' });
     }
 
-    const entry = updateHours(equipmentId, hours);
+    const entry = await updateHours(equipmentId, hours);
     if (!entry) {
         return res.status(404).json({ error: 'Licznik nie znaleziony' });
     }
@@ -64,7 +64,7 @@ router.put('/:equipmentId', roleGuard('admin'), (req, res) => {
  * Add hours to counter
  * Body: { hours: number }
  */
-router.post('/:equipmentId/add', (req, res) => {
+router.post('/:equipmentId/add', async (req, res) => {
     const equipmentId = parseInt(req.params.equipmentId as string, 10);
     const { hours } = req.body;
 
@@ -72,7 +72,7 @@ router.post('/:equipmentId/add', (req, res) => {
         return res.status(400).json({ error: 'hours musi być liczbą > 0' });
     }
 
-    const entry = addHours(equipmentId, hours);
+    const entry = await addHours(equipmentId, hours);
     if (!entry) {
         return res.status(404).json({ error: 'Licznik nie znaleziony' });
     }
@@ -85,9 +85,9 @@ router.post('/:equipmentId/add', (req, res) => {
  * GET /api/engine-hours/service-intervals
  * List all service intervals, optionally filtered by equipment
  */
-router.get('/service-intervals', (req, res) => {
+router.get('/service-intervals', async (req, res) => {
     const equipmentId = req.query.equipment_id ? parseInt(req.query.equipment_id as string, 10) : undefined;
-    const intervals = listServiceIntervals(equipmentId);
+    const intervals = await listServiceIntervals(equipmentId);
     res.json({ intervals });
 });
 
@@ -96,13 +96,13 @@ router.get('/service-intervals', (req, res) => {
  * Create a new service interval (admin only)
  * Body: { equipment_id, name, interval_hours, last_service_hours?, last_service_date?, notes? }
  */
-router.post('/service-intervals', roleGuard('admin'), (req, res) => {
+router.post('/service-intervals', roleGuard('admin'), async (req, res) => {
     const { equipment_id, name, interval_hours } = req.body;
     if (!equipment_id || !name || !interval_hours) {
         return res.status(400).json({ error: 'equipment_id, name i interval_hours są wymagane' });
     }
 
-    const interval = createServiceInterval(req.body);
+    const interval = await createServiceInterval(req.body);
     if (!interval) {
         return res.status(404).json({ error: 'Urządzenie nie znalezione' });
     }
@@ -115,8 +115,8 @@ router.post('/service-intervals', roleGuard('admin'), (req, res) => {
  * GET /api/engine-hours/service-alerts
  * Get all service alerts (overdue + due soon)
  */
-router.get('/service-alerts', (_req, res) => {
-    const alerts = getServiceAlerts();
+router.get('/service-alerts', async (_req, res) => {
+    const alerts = await getServiceAlerts();
     res.json({ alerts });
 });
 
@@ -126,9 +126,9 @@ router.get('/service-alerts', (_req, res) => {
  * GET /api/engine-hours/service-logs
  * List service logs, optionally filtered by equipment
  */
-router.get('/service-logs', (req, res) => {
+router.get('/service-logs', async (req, res) => {
     const equipmentId = req.query.equipment_id ? parseInt(req.query.equipment_id as string, 10) : undefined;
-    const logs = getServiceLogs(equipmentId);
+    const logs = await getServiceLogs(equipmentId);
     res.json({ logs });
 });
 
@@ -137,13 +137,13 @@ router.get('/service-logs', (req, res) => {
  * Log a completed service
  * Body: { interval_id: number, notes?, performed_by? }
  */
-router.post('/service-logs', (req, res) => {
+router.post('/service-logs', async (req, res) => {
     const { interval_id } = req.body;
     if (!interval_id || typeof interval_id !== 'number') {
         return res.status(400).json({ error: 'interval_id jest wymagany' });
     }
 
-    const log = logService({
+    const log = await logService({
         interval_id,
         notes: req.body.notes,
         performed_by: req.body.performed_by ?? req.user!.id,

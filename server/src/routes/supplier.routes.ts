@@ -40,8 +40,8 @@ const linkInventorySchema = z.object({
  * GET /api/suppliers/shopping-list
  * 🔒 Admin only — shopping list grouped by supplier
  */
-router.get('/shopping-list', roleGuard('admin'), (_req, res) => {
-    const groups = getShoppingListBySupplier();
+router.get('/shopping-list', roleGuard('admin'), async (_req, res) => {
+    const groups = await getShoppingListBySupplier();
     res.json({ groups });
 });
 
@@ -51,7 +51,7 @@ router.get('/shopping-list', roleGuard('admin'), (_req, res) => {
  * GET /api/suppliers
  * List all suppliers with optional filters
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const filters: Record<string, unknown> = {};
     if (req.query.city) filters.city = req.query.city;
     if (req.query.category) filters.category = req.query.category;
@@ -59,7 +59,7 @@ router.get('/', (req, res) => {
     if (req.query.active === 'true') filters.is_active = true;
     if (req.query.active === 'false') filters.is_active = false;
 
-    const suppliers = listSuppliers(filters as any);
+    const suppliers = await listSuppliers(filters as any);
     res.json({ suppliers });
 });
 
@@ -67,14 +67,14 @@ router.get('/', (req, res) => {
  * GET /api/suppliers/:id
  * Get supplier detail with inventory links
  */
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
-    const supplier = getSupplier(id);
+    const supplier = await getSupplier(id);
     if (!supplier) {
         res.status(404).json({ error: 'Dostawca nie znaleziony' });
         return;
@@ -87,12 +87,12 @@ router.get('/:id', (req, res) => {
  * POST /api/suppliers
  * 🔒 Admin only — add new supplier
  */
-router.post('/', roleGuard('admin'), (req, res) => {
+router.post('/', roleGuard('admin'), async (req, res) => {
     try {
         const data = createSupplierSchema.parse(req.body);
         // Filter out empty email
         const cleanData = { ...data, email: data.email || undefined };
-        const supplier = createSupplier(cleanData);
+        const supplier = await createSupplier(cleanData);
         res.status(201).json({ supplier });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -110,7 +110,7 @@ router.post('/', roleGuard('admin'), (req, res) => {
  * PUT /api/suppliers/:id
  * 🔒 Admin only — update supplier
  */
-router.put('/:id', roleGuard('admin'), (req, res) => {
+router.put('/:id', roleGuard('admin'), async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
@@ -120,7 +120,7 @@ router.put('/:id', roleGuard('admin'), (req, res) => {
     try {
         const data = updateSupplierSchema.parse(req.body);
         const cleanData = { ...data, email: data.email || undefined };
-        const supplier = updateSupplier(id, cleanData);
+        const supplier = await updateSupplier(id, cleanData);
         if (!supplier) {
             res.status(404).json({ error: 'Dostawca nie znaleziony' });
             return;
@@ -142,14 +142,14 @@ router.put('/:id', roleGuard('admin'), (req, res) => {
  * DELETE /api/suppliers/:id
  * 🔒 Admin only
  */
-router.delete('/:id', roleGuard('admin'), (req, res) => {
+router.delete('/:id', roleGuard('admin'), async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
-    const deleted = deleteSupplier(id);
+    const deleted = await deleteSupplier(id);
     if (!deleted) {
         res.status(404).json({ error: 'Dostawca nie znaleziony' });
         return;
@@ -164,7 +164,7 @@ router.delete('/:id', roleGuard('admin'), (req, res) => {
  * POST /api/suppliers/:id/inventory
  * 🔒 Admin only — link inventory item to supplier
  */
-router.post('/:id/inventory', roleGuard('admin'), (req, res) => {
+router.post('/:id/inventory', roleGuard('admin'), async (req, res) => {
     const supplierId = parseInt(req.params.id as string, 10);
     if (isNaN(supplierId) || supplierId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID dostawcy' });
@@ -173,7 +173,7 @@ router.post('/:id/inventory', roleGuard('admin'), (req, res) => {
 
     try {
         const data = linkInventorySchema.parse(req.body);
-        const link = linkInventoryItem(supplierId, data.inventory_id, data.unit_price, data.notes);
+        const link = await linkInventoryItem(supplierId, data.inventory_id, data.unit_price, data.notes);
         if (!link) {
             res.status(400).json({ error: 'Nie można powiązać — dostawca/pozycja nie istnieje lub powiązanie już istnieje' });
             return;
@@ -195,14 +195,14 @@ router.post('/:id/inventory', roleGuard('admin'), (req, res) => {
  * DELETE /api/suppliers/inventory/:linkId
  * 🔒 Admin only — remove inventory link
  */
-router.delete('/inventory/:linkId', roleGuard('admin'), (req, res) => {
+router.delete('/inventory/:linkId', roleGuard('admin'), async (req, res) => {
     const linkId = parseInt(req.params.linkId as string, 10);
     if (isNaN(linkId) || linkId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID powiązania' });
         return;
     }
 
-    const deleted = unlinkInventoryItem(linkId);
+    const deleted = await unlinkInventoryItem(linkId);
     if (!deleted) {
         res.status(404).json({ error: 'Powiązanie nie znalezione' });
         return;

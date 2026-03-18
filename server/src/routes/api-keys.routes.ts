@@ -11,8 +11,8 @@ router.use(roleGuard('admin'));
  * GET /api/api-keys
  * List all API keys (masked)
  */
-router.get('/', (_req, res) => {
-    const keys = listKeys();
+router.get('/', async (_req, res) => {
+    const keys = await listKeys();
     res.json({ keys });
 });
 
@@ -25,10 +25,10 @@ const addSchema = z.object({
     label: z.string().max(100).optional(),
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const data = addSchema.parse(req.body);
-        const key = addKey(data.api_key, data.label || '');
+        const key = await addKey(data.api_key, data.label || '');
         res.status(201).json({ key });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -47,10 +47,10 @@ router.post('/', (req, res) => {
 /**
  * DELETE /api/api-keys/:id
  */
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const deleted = removeKey(id);
+    const deleted = await removeKey(id);
     if (!deleted) { res.status(404).json({ error: 'Klucz nie znaleziony' }); return; }
     res.status(204).send();
 });
@@ -58,11 +58,11 @@ router.delete('/:id', (req, res) => {
 /**
  * PATCH /api/api-keys/:id/toggle
  */
-router.patch('/:id/toggle', (req, res) => {
+router.patch('/:id/toggle', async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
     const { active } = req.body;
-    const updated = toggleKey(id, !!active);
+    const updated = await toggleKey(id, !!active);
     if (!updated) { res.status(404).json({ error: 'Klucz nie znaleziony' }); return; }
     res.json({ success: true });
 });
@@ -70,10 +70,10 @@ router.patch('/:id/toggle', (req, res) => {
 /**
  * POST /api/api-keys/:id/clear-cooldown
  */
-router.post('/:id/clear-cooldown', (req, res) => {
+router.post('/:id/clear-cooldown', async (req, res) => {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const cleared = clearCooldown(id);
+    const cleared = await clearCooldown(id);
     if (!cleared) { res.status(404).json({ error: 'Klucz nie znaleziony' }); return; }
     res.json({ success: true });
 });

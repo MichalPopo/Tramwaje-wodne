@@ -224,7 +224,7 @@ router.post('/:id/split', roleGuard('admin'), async (req, res) => {
             return;
         }
         const input = splitTaskSchema.parse(req.body);
-        const result = splitTask(id, input.split_after_hours);
+        const result = await splitTask(id, input.split_after_hours);
         res.json(result);
     } catch (error) {
         if (error instanceof ZodError) {
@@ -254,7 +254,7 @@ router.post('/merge/:splitGroupId', roleGuard('admin'), async (req, res) => {
             res.status(400).json({ error: 'Nieprawidłowe ID grupy' });
             return;
         }
-        const task = mergeTasks(splitGroupId);
+        const task = await mergeTasks(splitGroupId);
         res.json({ task });
     } catch (error) {
         if (error instanceof Error && error.message === 'NOTHING_TO_MERGE') {

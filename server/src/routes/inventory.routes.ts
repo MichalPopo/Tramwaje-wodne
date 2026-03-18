@@ -179,7 +179,7 @@ router.patch('/:id/quantity', async (req, res) => {
 
     try {
         const { delta } = adjustQuantitySchema.parse(req.body);
-        const item = adjustQuantity(id, delta);
+        const item = await adjustQuantity(id, delta);
         if (!item) {
             res.status(404).json({ error: 'Pozycja nie znaleziona' });
             return;
