@@ -21,18 +21,18 @@ router.use(authMiddleware);
 // ========================
 
 /** GET /api/equipment */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const ship_id = req.query.ship_id ? parseInt(req.query.ship_id as string, 10) : undefined;
     const type = req.query.type as string | undefined;
-    const equipment = listEquipment({ ship_id, type });
+    const equipment = await listEquipment({ ship_id, type });
     res.json({ equipment });
 });
 
 /** GET /api/equipment/qr/:id — generate QR code SVG */
 router.get('/qr/:id', async (req, res) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const eq = getEquipment(id);
+    const eq = await getEquipment(id);
     if (!eq) { res.status(404).json({ error: 'Urządzenie nie znalezione' }); return; }
 
     try {
@@ -47,38 +47,38 @@ router.get('/qr/:id', async (req, res) => {
 });
 
 /** GET /api/equipment/:id */
-router.get('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const eq = getEquipment(id);
+    const eq = await getEquipment(id);
     if (!eq) { res.status(404).json({ error: 'Urządzenie nie znalezione' }); return; }
     // Include related instructions
-    const instructions = listInstructions({ equipment_id: id });
+    const instructions = await listInstructions({ equipment_id: id });
     res.json({ equipment: eq, instructions });
 });
 
 /** POST /api/equipment (admin) */
-router.post('/', roleGuard('admin'), (req, res) => {
+router.post('/', roleGuard('admin'), async (req, res) => {
     const { name } = req.body;
     if (!name) { res.status(400).json({ error: 'Nazwa urządzenia wymagana' }); return; }
-    const eq = createEquipment(req.body);
+    const eq = await createEquipment(req.body);
     res.status(201).json({ equipment: eq });
 });
 
 /** PUT /api/equipment/:id (admin) */
-router.put('/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.put('/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const eq = updateEquipment(id, req.body);
+    const eq = await updateEquipment(id, req.body);
     if (!eq) { res.status(404).json({ error: 'Urządzenie nie znalezione' }); return; }
     res.json({ equipment: eq });
 });
 
 /** DELETE /api/equipment/:id (admin) */
-router.delete('/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const deleted = deleteEquipment(id);
+    const deleted = await deleteEquipment(id);
     if (!deleted) { res.status(404).json({ error: 'Urządzenie nie znalezione' }); return; }
     res.json({ deleted: true });
 });
@@ -88,29 +88,29 @@ router.delete('/:id', roleGuard('admin'), (req, res) => {
 // ========================
 
 /** GET /api/equipment/instructions */
-router.get('/instructions/list', (req, res) => {
+router.get('/instructions/list', async (req, res) => {
     const equipment_id = req.query.equipment_id ? parseInt(req.query.equipment_id as string, 10) : undefined;
-    const instructions = listInstructions({ equipment_id });
+    const instructions = await listInstructions({ equipment_id });
     res.json({ instructions });
 });
 
 /** GET /api/equipment/instructions/:id */
-router.get('/instructions/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/instructions/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const instruction = getInstruction(id);
+    const instruction = await getInstruction(id);
     if (!instruction) { res.status(404).json({ error: 'Instrukcja nie znaleziona' }); return; }
     res.json({ instruction });
 });
 
 /** POST /api/equipment/instructions (admin) */
-router.post('/instructions', roleGuard('admin'), (req, res) => {
+router.post('/instructions', roleGuard('admin'), async (req, res) => {
     const { title, steps } = req.body;
     if (!title || !steps || !Array.isArray(steps) || steps.length === 0) {
         res.status(400).json({ error: 'Tytuł i co najmniej 1 krok wymagane' });
         return;
     }
-    const instruction = createInstruction({
+    const instruction = await createInstruction({
         ...req.body,
         created_by: req.user!.id,
     });
@@ -165,10 +165,10 @@ Użyj jasnego, prostego języka. Każdy krok powinien być jedną czynnością. 
 });
 
 /** DELETE /api/equipment/instructions/:id (admin) */
-router.delete('/instructions/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/instructions/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
-    const deleted = deleteInstruction(id);
+    const deleted = await deleteInstruction(id);
     if (!deleted) { res.status(404).json({ error: 'Instrukcja nie znaleziona' }); return; }
     res.json({ deleted: true });
 });

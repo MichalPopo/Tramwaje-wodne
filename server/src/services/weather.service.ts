@@ -73,7 +73,6 @@ function isPaintingWindow(day: {
     wind_speed_max: number;
     weather_code: number;
 }): boolean {
-    // Malowanie wymaga: brak deszczu, temp > 5°C, wiatr < 30 km/h, brak mgły
     return (
         day.precipitation_sum < 0.5 &&
         day.precipitation_probability_max < 40 &&
@@ -89,7 +88,6 @@ function isWeldingWindow(day: {
     wind_speed_max: number;
     weather_code: number;
 }): boolean {
-    // Spawanie wymaga: brak deszczu, wiatr < 20 km/h (gaz ochronny!), brak burzy
     return (
         day.precipitation_sum < 0.2 &&
         day.precipitation_probability_max < 30 &&
@@ -108,8 +106,8 @@ interface CacheRow {
     fetched_at: string;
 }
 
-function getCachedForecast(): WeatherForecast | null {
-    const row = queryOne<CacheRow>(
+async function getCachedForecast(): Promise<WeatherForecast | null> {
+    const row = await queryOne<CacheRow>(
         'SELECT * FROM weather_cache ORDER BY id DESC LIMIT 1',
     );
     if (!row) return null;
@@ -118,16 +116,15 @@ function getCachedForecast(): WeatherForecast | null {
     if (Date.now() - fetchedAt > CACHE_DURATION_MS) return null;
 
     try {
-        return JSON.parse(row.data) as WeatherForecast;
+        return JSON.parse(row.data as string) as WeatherForecast;
     } catch {
         return null;
     }
 }
 
-function saveForecastToCache(forecast: WeatherForecast): void {
-    // Delete old entries, keep only latest
-    execute('DELETE FROM weather_cache');
-    execute(
+async function saveForecastToCache(forecast: WeatherForecast): Promise<void> {
+    await execute('DELETE FROM weather_cache');
+    await execute(
         'INSERT INTO weather_cache (data) VALUES (?)',
         [JSON.stringify(forecast)],
     );
@@ -136,8 +133,7 @@ function saveForecastToCache(forecast: WeatherForecast): void {
 // --- Fetch from Open-Meteo ---
 
 export async function getForecast(): Promise<WeatherForecast> {
-    // Check cache first
-    const cached = getCachedForecast();
+    const cached = await getCachedForecast();
     if (cached) return cached;
 
     const lat = process.env.WEATHER_LAT || '54.3153';
@@ -212,8 +208,7 @@ export async function getForecast(): Promise<WeatherForecast> {
         welding_windows: daily.filter(d => d.is_welding_window).length,
     };
 
-    // Cache
-    saveForecastToCache(forecast);
+    await saveForecastToCache(forecast);
 
     return forecast;
 }

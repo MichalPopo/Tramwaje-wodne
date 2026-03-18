@@ -1,5 +1,4 @@
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -43,9 +42,9 @@ export interface CertificateFilters {
     status?: string;
 }
 
-export function listCertificates(filters: CertificateFilters = {}, db?: Database) {
+export async function listCertificates(filters: CertificateFilters = {}) {
     let sql = 'SELECT c.*, s.short_name as ship_name FROM certificates c LEFT JOIN ships s ON s.id = c.ship_id WHERE 1=1';
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     if (filters.ship_id) {
         sql += ' AND c.ship_id = ?';
@@ -58,17 +57,17 @@ export function listCertificates(filters: CertificateFilters = {}, db?: Database
 
     sql += ' ORDER BY c.expiry_date ASC';
 
-    return queryAll<CertificateRow & { ship_name: string | null }>(sql, params, db);
+    return await queryAll<CertificateRow & { ship_name: string | null }>(sql, params);
 }
 
-export function getCertificate(id: number, db?: Database) {
-    return queryOne<CertificateRow & { ship_name: string | null }>(
+export async function getCertificate(id: number) {
+    return await queryOne<CertificateRow & { ship_name: string | null }>(
         'SELECT c.*, s.short_name as ship_name FROM certificates c LEFT JOIN ships s ON s.id = c.ship_id WHERE c.id = ?',
-        [id], db,
+        [id],
     );
 }
 
-export function createCertificate(data: {
+export async function createCertificate(data: {
     ship_id?: number | null;
     name: string;
     issuer?: string;
@@ -76,8 +75,8 @@ export function createCertificate(data: {
     issue_date?: string;
     expiry_date: string;
     notes?: string;
-}, db?: Database) {
-    const result = execute(
+}) {
+    const result = await execute(
         `INSERT INTO certificates (ship_id, name, issuer, number, issue_date, expiry_date, notes)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -89,12 +88,11 @@ export function createCertificate(data: {
             data.expiry_date,
             data.notes || null,
         ],
-        db,
     );
-    return getCertificate(result.lastInsertRowid, db);
+    return getCertificate(result.lastInsertRowid);
 }
 
-export function updateCertificate(id: number, data: Partial<{
+export async function updateCertificate(id: number, data: Partial<{
     ship_id: number | null;
     name: string;
     issuer: string | null;
@@ -103,11 +101,11 @@ export function updateCertificate(id: number, data: Partial<{
     expiry_date: string;
     notes: string | null;
     status: string;
-}>, db?: Database) {
-    const existing = getCertificate(id, db);
+}>) {
+    const existing = await getCertificate(id);
     if (!existing) return null;
 
-    execute(
+    await execute(
         `UPDATE certificates SET
             ship_id = ?, name = ?, issuer = ?, number = ?,
             issue_date = ?, expiry_date = ?, notes = ?, status = ?,
@@ -124,20 +122,19 @@ export function updateCertificate(id: number, data: Partial<{
             data.status ?? existing.status,
             id,
         ],
-        db,
     );
-    return getCertificate(id, db);
+    return getCertificate(id);
 }
 
-export function deleteCertificate(id: number, db?: Database) {
-    const existing = getCertificate(id, db);
+export async function deleteCertificate(id: number) {
+    const existing = await getCertificate(id);
     if (!existing) return false;
-    execute('DELETE FROM certificates WHERE id = ?', [id], db);
+    await execute('DELETE FROM certificates WHERE id = ?', [id]);
     return true;
 }
 
-export function getExpiringCertificates(daysAhead: number = 30, db?: Database) {
-    return queryAll<CertificateRow & { ship_name: string | null; days_remaining: number }>(
+export async function getExpiringCertificates(daysAhead: number = 30) {
+    return await queryAll<CertificateRow & { ship_name: string | null; days_remaining: number }>(
         `SELECT c.*, s.short_name as ship_name,
             CAST(julianday(c.expiry_date) - julianday('now') AS INTEGER) as days_remaining
          FROM certificates c
@@ -145,60 +142,59 @@ export function getExpiringCertificates(daysAhead: number = 30, db?: Database) {
          WHERE c.status = 'active'
            AND julianday(c.expiry_date) - julianday('now') <= ?
          ORDER BY c.expiry_date ASC`,
-        [daysAhead], db,
+        [daysAhead],
     );
 }
 
 // --- Inspection Templates ---
 
-export function listTemplates(shipId?: number, db?: Database) {
+export async function listTemplates(shipId?: number) {
     if (shipId) {
-        return queryAll<InspectionTemplateRow>(
+        return await queryAll<InspectionTemplateRow>(
             'SELECT * FROM inspection_templates WHERE ship_id = ? OR ship_id IS NULL ORDER BY name',
-            [shipId], db,
+            [shipId],
         );
     }
-    return queryAll<InspectionTemplateRow>(
-        'SELECT * FROM inspection_templates ORDER BY name', [], db,
+    return await queryAll<InspectionTemplateRow>(
+        'SELECT * FROM inspection_templates ORDER BY name', [],
     );
 }
 
-export function getTemplate(id: number, db?: Database) {
-    return queryOne<InspectionTemplateRow>(
-        'SELECT * FROM inspection_templates WHERE id = ?', [id], db,
+export async function getTemplate(id: number) {
+    return await queryOne<InspectionTemplateRow>(
+        'SELECT * FROM inspection_templates WHERE id = ?', [id],
     );
 }
 
-export function createTemplate(data: {
+export async function createTemplate(data: {
     name: string;
     ship_id?: number | null;
     items: { label: string; required?: boolean }[];
-}, db?: Database) {
-    const result = execute(
+}) {
+    const result = await execute(
         'INSERT INTO inspection_templates (name, ship_id, items) VALUES (?, ?, ?)',
         [data.name, data.ship_id || null, JSON.stringify(data.items)],
-        db,
     );
-    return getTemplate(result.lastInsertRowid, db);
+    return getTemplate(result.lastInsertRowid);
 }
 
-export function deleteTemplate(id: number, db?: Database) {
-    const existing = getTemplate(id, db);
+export async function deleteTemplate(id: number) {
+    const existing = getTemplate(id);
     if (!existing) return false;
-    execute('DELETE FROM inspection_templates WHERE id = ?', [id], db);
+    await execute('DELETE FROM inspection_templates WHERE id = ?', [id]);
     return true;
 }
 
 // --- Inspections ---
 
-export function listInspections(filters: { ship_id?: number; template_id?: number } = {}, db?: Database) {
+export async function listInspections(filters: { ship_id?: number; template_id?: number } = {}) {
     let sql = `SELECT i.*, it.name as template_name, s.short_name as ship_name, u.name as inspector_name
                FROM inspections i
                LEFT JOIN inspection_templates it ON it.id = i.template_id
                LEFT JOIN ships s ON s.id = i.ship_id
                LEFT JOIN users u ON u.id = i.inspector_id
                WHERE 1=1`;
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     if (filters.ship_id) {
         sql += ' AND i.ship_id = ?';
@@ -211,20 +207,20 @@ export function listInspections(filters: { ship_id?: number; template_id?: numbe
 
     sql += ' ORDER BY i.date DESC';
 
-    return queryAll<InspectionRow & { template_name: string; ship_name: string | null; inspector_name: string }>(
-        sql, params, db,
+    return await queryAll<InspectionRow & { template_name: string; ship_name: string | null; inspector_name: string }>(
+        sql, params,
     );
 }
 
-export function createInspection(data: {
+export async function createInspection(data: {
     template_id: number;
     ship_id?: number | null;
     inspector_id: number;
     results: { label: string; ok: boolean; note?: string }[];
     date?: string;
     notes?: string;
-}, db?: Database) {
-    const result = execute(
+}) {
+    const result = await execute(
         `INSERT INTO inspections (template_id, ship_id, inspector_id, results, date, notes)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
@@ -235,9 +231,8 @@ export function createInspection(data: {
             data.date || new Date().toISOString().slice(0, 10),
             data.notes || null,
         ],
-        db,
     );
-    return queryOne<InspectionRow>(
-        'SELECT * FROM inspections WHERE id = ?', [result.lastInsertRowid], db,
+    return await queryOne<InspectionRow>(
+        'SELECT * FROM inspections WHERE id = ?', [result.lastInsertRowid],
     );
 }

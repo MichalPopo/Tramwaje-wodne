@@ -33,12 +33,12 @@ router.use(authMiddleware);
  * GET /api/tasks/gantt
  * Gantt chart data with CPM-computed scheduling
  */
-router.get('/gantt', (req, res) => {
+router.get('/gantt', async (req, res) => {
     try {
         const ship_id = req.query.ship_id ? parseInt(req.query.ship_id as string, 10) : undefined;
         const assignee_id = req.query.assignee_id ? parseInt(req.query.assignee_id as string, 10) : undefined;
 
-        const data = getGanttData({ ship_id, assignee_id });
+        const data = await getGanttData({ ship_id, assignee_id });
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: 'Wewnętrzny błąd serwera' });
@@ -49,7 +49,7 @@ router.get('/gantt', (req, res) => {
  * GET /api/tasks/my
  * My assigned tasks (must be before :id route)
  */
-router.get('/my', (req, res) => {
+router.get('/my', async (req, res) => {
     const tasks = getMyTasks(req.user!.id);
     res.json({ tasks });
 });
@@ -58,7 +58,7 @@ router.get('/my', (req, res) => {
  * GET /api/tasks/today
  * Tasks due today or overdue
  */
-router.get('/today', (_req, res) => {
+router.get('/today', async (_req, res) => {
     const tasks = getTodayTasks();
     res.json({ tasks });
 });
@@ -67,10 +67,10 @@ router.get('/today', (_req, res) => {
  * GET /api/tasks
  * List all tasks with optional filters
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const filters = taskQuerySchema.parse(req.query);
-        const tasks = listTasks(filters);
+        const tasks = await listTasks(filters);
         res.json({ tasks });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -91,14 +91,14 @@ router.get('/', (req, res) => {
  * GET /api/tasks/:id
  * Task details with assignees, dependencies, time logs
  */
-router.get('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
     }
 
-    const task = getTaskById(id);
+    const task = await getTaskById(id);
     if (!task) {
         res.status(404).json({ error: 'Zadanie nie znalezione' });
         return;
@@ -114,7 +114,7 @@ router.get('/:id', (req, res) => {
 router.post('/', roleGuard('admin'), async (req, res) => {
     try {
         const input = createTaskSchema.parse(req.body);
-        const task = createTask(input, req.user!.id);
+        const task = await createTask(input, req.user!.id);
         res.status(201).json({ task });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -150,14 +150,14 @@ router.post('/', roleGuard('admin'), async (req, res) => {
  */
 router.put('/:id', roleGuard('admin'), async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parseInt(req.params.id as string, 10);
         if (isNaN(id) || id <= 0) {
             res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
             return;
         }
 
         const input = updateTaskSchema.parse(req.body);
-        const task = updateTask(id, input);
+        const task = await updateTask(id, input);
         if (!task) {
             res.status(404).json({ error: 'Zadanie nie znalezione' });
             return;
@@ -196,14 +196,14 @@ router.put('/:id', roleGuard('admin'), async (req, res) => {
  * DELETE /api/tasks/:id
  * 🔒 Admin only — delete task
  */
-router.delete('/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
     }
 
-    const deleted = deleteTask(id);
+    const deleted = await deleteTask(id);
     if (!deleted) {
         res.status(404).json({ error: 'Zadanie nie znalezione' });
         return;
@@ -216,9 +216,9 @@ router.delete('/:id', roleGuard('admin'), (req, res) => {
  * POST /api/tasks/:id/split
  * 🔒 Admin only — split task into two parts
  */
-router.post('/:id/split', roleGuard('admin'), (req, res) => {
+router.post('/:id/split', roleGuard('admin'), async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parseInt(req.params.id as string, 10);
         if (isNaN(id) || id <= 0) {
             res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
             return;
@@ -247,9 +247,9 @@ router.post('/:id/split', roleGuard('admin'), (req, res) => {
  * POST /api/tasks/merge/:splitGroupId
  * 🔒 Admin only — merge split tasks back together
  */
-router.post('/merge/:splitGroupId', roleGuard('admin'), (req, res) => {
+router.post('/merge/:splitGroupId', roleGuard('admin'), async (req, res) => {
     try {
-        const splitGroupId = parseInt(req.params.splitGroupId, 10);
+        const splitGroupId = parseInt(req.params.splitGroupId as string, 10);
         if (isNaN(splitGroupId) || splitGroupId <= 0) {
             res.status(400).json({ error: 'Nieprawidłowe ID grupy' });
             return;
@@ -269,9 +269,9 @@ router.post('/merge/:splitGroupId', roleGuard('admin'), (req, res) => {
  * PATCH /api/tasks/:id/status
  * Change task status (worker: only own tasks)
  */
-router.patch('/:id/status', (req, res) => {
+router.patch('/:id/status', async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parseInt(req.params.id as string, 10);
         if (isNaN(id) || id <= 0) {
             res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
             return;
@@ -308,16 +308,16 @@ router.patch('/:id/status', (req, res) => {
  * POST /api/tasks/:id/time
  * Log time on a task
  */
-router.post('/:id/time', (req, res) => {
+router.post('/:id/time', async (req, res) => {
     try {
-        const taskId = parseInt(req.params.id, 10);
+        const taskId = parseInt(req.params.id as string, 10);
         if (isNaN(taskId) || taskId <= 0) {
             res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
             return;
         }
 
         const input = logTimeSchema.parse(req.body);
-        const log = logTime(taskId, req.user!.id, req.user!.role, input);
+        const log = await logTime(taskId, req.user!.id, req.user!.role, input);
         res.status(201).json({ time_log: log });
     } catch (error) {
         if (error instanceof ZodError) {

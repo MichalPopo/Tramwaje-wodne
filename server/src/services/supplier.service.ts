@@ -1,5 +1,4 @@
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -97,9 +96,9 @@ interface ListFilters {
     is_active?: boolean;
 }
 
-export function listSuppliers(filters: ListFilters = {}, db?: Database): Supplier[] {
+export async function listSuppliers(filters: ListFilters = {}): Promise<Supplier[]> {
     let sql = 'SELECT * FROM suppliers WHERE 1=1';
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     if (filters.city) {
         sql += ' AND city = ?';
@@ -122,20 +121,20 @@ export function listSuppliers(filters: ListFilters = {}, db?: Database): Supplie
 
     sql += ' ORDER BY name';
 
-    return queryAll<SupplierRow>(sql, params, db).map(toSupplier);
+    return (await queryAll<SupplierRow>(sql, params)).map(toSupplier);
 }
 
-export function getSupplier(id: number, db?: Database): SupplierDetail | undefined {
-    const row = queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [id], db);
+export async function getSupplier(id: number): Promise<SupplierDetail | undefined> {
+    const row = await queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [id]);
     if (!row) return undefined;
 
-    const links = queryAll<SupplierInventoryRow & { inventory_name: string; inventory_category: string }>(
+    const links = await queryAll<SupplierInventoryRow & { inventory_name: string; inventory_category: string }>(
         `SELECT si.*, i.name as inventory_name, i.category as inventory_category
          FROM supplier_inventory si
          JOIN inventory_items i ON i.id = si.inventory_id
          WHERE si.supplier_id = ?
          ORDER BY i.name`,
-        [id], db,
+        [id],
     );
 
     return {
@@ -153,7 +152,7 @@ export function getSupplier(id: number, db?: Database): SupplierDetail | undefin
     };
 }
 
-export function createSupplier(
+export async function createSupplier(
     data: {
         name: string;
         contact_person?: string;
@@ -164,9 +163,8 @@ export function createSupplier(
         categories?: string[];
         notes?: string;
     },
-    db?: Database,
-): Supplier {
-    const result = execute(
+): Promise<Supplier> {
+    const result = await execute(
         `INSERT INTO suppliers (name, contact_person, phone, email, address, city, categories, notes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -179,13 +177,12 @@ export function createSupplier(
             JSON.stringify(data.categories ?? []),
             data.notes ?? null,
         ],
-        db,
     );
-    const row = queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [result.lastInsertRowid], db);
+    const row = await queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [result.lastInsertRowid]);
     return toSupplier(row!);
 }
 
-export function updateSupplier(
+export async function updateSupplier(
     id: number,
     data: {
         name?: string;
@@ -198,9 +195,8 @@ export function updateSupplier(
         notes?: string | null;
         is_active?: boolean;
     },
-    db?: Database,
-): Supplier | undefined {
-    const existing = queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [id], db);
+): Promise<Supplier | undefined> {
+    const existing = await queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [id]);
     if (!existing) return undefined;
 
     const updated = {
@@ -215,54 +211,51 @@ export function updateSupplier(
         is_active: data.is_active !== undefined ? (data.is_active ? 1 : 0) : existing.is_active,
     };
 
-    execute(
+    await execute(
         `UPDATE suppliers SET name=?, contact_person=?, phone=?, email=?, address=?, city=?, categories=?, notes=?, is_active=?
          WHERE id = ?`,
         [updated.name, updated.contact_person, updated.phone, updated.email, updated.address, updated.city, updated.categories, updated.notes, updated.is_active, id],
-        db,
     );
 
-    const row = queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [id], db);
+    const row = await queryOne<SupplierRow>('SELECT * FROM suppliers WHERE id = ?', [id]);
     return row ? toSupplier(row) : undefined;
 }
 
-export function deleteSupplier(id: number, db?: Database): boolean {
-    const result = execute('DELETE FROM suppliers WHERE id = ?', [id], db);
+export async function deleteSupplier(id: number): Promise<boolean> {
+    const result = await execute('DELETE FROM suppliers WHERE id = ?', [id]);
     return result.changes > 0;
 }
 
 // --- Inventory linking ---
 
-export function linkInventoryItem(
+export async function linkInventoryItem(
     supplierId: number,
     inventoryId: number,
     unitPrice?: number,
     notes?: string,
-    db?: Database,
-): SupplierInventoryLink | undefined {
+): Promise<SupplierInventoryLink | undefined> {
     // Check supplier exists
-    const supplier = queryOne<SupplierRow>('SELECT id FROM suppliers WHERE id = ?', [supplierId], db);
+    const supplier = await queryOne<SupplierRow>('SELECT id FROM suppliers WHERE id = ?', [supplierId]);
     if (!supplier) return undefined;
 
     // Check inventory exists
-    const inv = queryOne<{ id: number }>('SELECT id FROM inventory_items WHERE id = ?', [inventoryId], db);
+    const inv = await queryOne<{ id: number }>('SELECT id FROM inventory_items WHERE id = ?', [inventoryId]);
     if (!inv) return undefined;
 
-    const result = execute(
+    const result = await execute(
         `INSERT OR IGNORE INTO supplier_inventory (supplier_id, inventory_id, unit_price, notes)
          VALUES (?, ?, ?, ?)`,
         [supplierId, inventoryId, unitPrice ?? null, notes ?? null],
-        db,
     );
 
     if (result.changes === 0) return undefined; // duplicate
 
-    const link = queryOne<SupplierInventoryRow & { inventory_name: string; inventory_category: string }>(
+    const link = await queryOne<SupplierInventoryRow & { inventory_name: string; inventory_category: string }>(
         `SELECT si.*, i.name as inventory_name, i.category as inventory_category
          FROM supplier_inventory si
          JOIN inventory_items i ON i.id = si.inventory_id
          WHERE si.id = ?`,
-        [result.lastInsertRowid], db,
+        [result.lastInsertRowid],
     );
 
     return link ? {
@@ -277,16 +270,16 @@ export function linkInventoryItem(
     } : undefined;
 }
 
-export function unlinkInventoryItem(linkId: number, db?: Database): boolean {
-    const result = execute('DELETE FROM supplier_inventory WHERE id = ?', [linkId], db);
+export async function unlinkInventoryItem(linkId: number): Promise<boolean> {
+    const result = await execute('DELETE FROM supplier_inventory WHERE id = ?', [linkId]);
     return result.changes > 0;
 }
 
 // --- Shopping list by supplier ---
 
-export function getShoppingListBySupplier(db?: Database): SupplierShoppingGroup[] {
+export async function getShoppingListBySupplier(): Promise<SupplierShoppingGroup[]> {
     // Get all unpurchased task materials that have inventory links to suppliers
-    const rows = queryAll<{
+    const rows = await queryAll<{
         supplier_id: number;
         supplier_name: string;
         city: string | null;
@@ -319,7 +312,7 @@ export function getShoppingListBySupplier(db?: Database): SupplierShoppingGroup[
          WHERE tm.purchased = 0 AND t.status != 'done' AND s.is_active = 1
          GROUP BY s.id, i.id, si.unit_price
          ORDER BY s.name, i.name`,
-        [], db,
+        [],
     );
 
     // Group by supplier
@@ -363,8 +356,8 @@ export function getShoppingListBySupplier(db?: Database): SupplierShoppingGroup[
 
 // --- AI Context ---
 
-export function getSupplierContext(db?: Database): string {
-    const suppliers = listSuppliers({ is_active: true }, db);
+export async function getSupplierContext(): Promise<string> {
+    const suppliers = await listSuppliers({ is_active: true });
     if (suppliers.length === 0) return '';
 
     const lines = suppliers.map(s => {

@@ -83,7 +83,7 @@ router.post('/chat', aiLimiter, async (req, res) => {
  * GET /api/ai/conversations
  * List user's conversations
  */
-router.get('/conversations', (req, res) => {
+router.get('/conversations', async (req, res) => {
     const conversations = getConversations(req.user!.id);
     res.json({ conversations });
 });
@@ -92,9 +92,9 @@ router.get('/conversations', (req, res) => {
  * GET /api/ai/conversations/:id
  * Get conversation messages
  */
-router.get('/conversations/:id', (req, res) => {
+router.get('/conversations/:id', async (req, res) => {
     try {
-        const id = parseInt(req.params.id, 10);
+        const id = parseInt(req.params.id as string, 10);
         if (isNaN(id) || id <= 0) {
             res.status(400).json({ error: 'Nieprawidłowe ID konwersacji' });
             return;
@@ -115,8 +115,8 @@ router.get('/conversations/:id', (req, res) => {
  * DELETE /api/ai/conversations/:id
  * Delete a conversation
  */
-router.delete('/conversations/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/conversations/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID konwersacji' });
         return;

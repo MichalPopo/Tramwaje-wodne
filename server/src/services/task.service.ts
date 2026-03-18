@@ -1,5 +1,4 @@
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 import type {
     CreateTaskInput,
     UpdateTaskInput,
@@ -53,37 +52,34 @@ export interface TaskDetail extends Omit<TaskRow, 'weather_dependent' | 'weather
 }
 
 /** Convert SQLite INTEGER booleans to JS booleans */
-function toTaskDetail(row: TaskRow, db?: Database): TaskDetail {
-    const assignees = queryAll<{ id: number; name: string; email: string }>(
+async function toTaskDetail(row: TaskRow): Promise<TaskDetail> {
+    const assignees = await queryAll<{ id: number; name: string; email: string }>(
         `SELECT u.id, u.name, u.email
          FROM task_assignments ta
          JOIN users u ON u.id = ta.user_id
          WHERE ta.task_id = ?`,
         [row.id],
-        db,
     );
 
-    const dependencies = queryAll<{ id: number; title: string; status: string }>(
+    const dependencies = await queryAll<{ id: number; title: string; status: string }>(
         `SELECT t.id, t.title, t.status
          FROM task_dependencies td
          JOIN tasks t ON t.id = td.depends_on_id
          WHERE td.task_id = ?`,
         [row.id],
-        db,
     );
 
-    const time_logs = queryAll<{ id: number; hours: number; note: string | null; logged_at: string; user_name: string }>(
+    const time_logs = await queryAll<{ id: number; hours: number; note: string | null; logged_at: string; user_name: string }>(
         `SELECT tl.id, tl.hours, tl.note, tl.logged_at, u.name as user_name
          FROM time_logs tl
          JOIN users u ON u.id = tl.user_id
          WHERE tl.task_id = ?
          ORDER BY tl.logged_at DESC`,
         [row.id],
-        db,
     );
 
     const ship = row.ship_id
-        ? queryOne<{ name: string }>('SELECT name FROM ships WHERE id = ?', [row.ship_id], db)
+        ? await queryOne<{ name: string }>('SELECT name FROM ships WHERE id = ?', [row.ship_id])
         : null;
 
     return {
@@ -121,9 +117,9 @@ function toTaskSummary(row: TaskRow) {
 
 // --- Service functions ---
 
-export function listTasks(filters: TaskQueryInput, db?: Database) {
+export async function listTasks(filters: TaskQueryInput) {
     const conditions: string[] = [];
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     if (filters.status) {
         conditions.push('t.status = ?');
@@ -173,25 +169,24 @@ export function listTasks(filters: TaskQueryInput, db?: Database) {
             t.created_at DESC
     `;
 
-    const rows = queryAll<TaskRow & { ship_name: string | null }>(sql, params, db);
+    const rows = await queryAll<TaskRow & { ship_name: string | null }>(sql, params);
     return rows.map(row => ({
         ...toTaskSummary(row),
         ship_name: row.ship_name,
     }));
 }
 
-export function getTaskById(id: number, db?: Database): TaskDetail | undefined {
-    const row = queryOne<TaskRow>('SELECT * FROM tasks WHERE id = ?', [id], db);
+export async function getTaskById(id: number): Promise<TaskDetail | undefined> {
+    const row = await queryOne<TaskRow>('SELECT * FROM tasks WHERE id = ?', [id]);
     if (!row) return undefined;
-    return toTaskDetail(row, db);
+    return toTaskDetail(row);
 }
 
-export function createTask(
+export async function createTask(
     input: CreateTaskInput,
     createdBy: number,
-    db?: Database,
-): TaskDetail {
-    const result = execute(
+): Promise<TaskDetail> {
+    const result = await execute(
         `INSERT INTO tasks (
             title, description, ship_id, ship_scope, category, priority,
             estimated_hours, estimated_cost, deadline,
@@ -216,7 +211,6 @@ export function createTask(
             input.logistics_notes ?? null,
             createdBy,
         ],
-        db,
     );
 
     const taskId = result.lastInsertRowid;
@@ -225,10 +219,9 @@ export function createTask(
     if (input.assignee_ids?.length) {
         for (const userId of input.assignee_ids) {
             try {
-                execute(
+                await execute(
                     'INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)',
                     [taskId, userId],
-                    db,
                 );
             } catch {
                 throw new Error(`INVALID_ASSIGNEE:${userId}`);
@@ -239,10 +232,10 @@ export function createTask(
     // Dependencies
     if (input.dependency_ids?.length) {
         // Cycle check: get all existing deps and task IDs
-        const allDeps = queryAll<{ task_id: number; depends_on_id: number }>(
-            'SELECT task_id, depends_on_id FROM task_dependencies', [], db,
+        const allDeps = await queryAll<{ task_id: number; depends_on_id: number }>(
+            'SELECT task_id, depends_on_id FROM task_dependencies', [],
         );
-        const allTaskIds = queryAll<{ id: number }>('SELECT id FROM tasks', [], db).map(r => r.id);
+        const allTaskIds = (await queryAll<{ id: number }>('SELECT id FROM tasks', [])).map(r => r.id);
 
         for (const depId of input.dependency_ids) {
             // depId → taskId means taskId depends on depId
@@ -250,10 +243,9 @@ export function createTask(
                 throw new Error(`CYCLE_WOULD_BE_CREATED:${depId}:${taskId}`);
             }
             try {
-                execute(
+                await execute(
                     'INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)',
                     [taskId, depId],
-                    db,
                 );
                 // Add to allDeps so subsequent checks within this loop are accurate
                 allDeps.push({ task_id: taskId, depends_on_id: depId });
@@ -263,19 +255,18 @@ export function createTask(
         }
     }
 
-    return getTaskById(taskId, db)!;
+    return (await getTaskById(taskId))!;
 }
 
-export function updateTask(
+export async function updateTask(
     id: number,
     input: UpdateTaskInput,
-    db?: Database,
-): TaskDetail | undefined {
-    const existing = queryOne<TaskRow>('SELECT id FROM tasks WHERE id = ?', [id], db);
+): Promise<TaskDetail | undefined> {
+    const existing = await queryOne<TaskRow>('SELECT id FROM tasks WHERE id = ?', [id]);
     if (!existing) return undefined;
 
     const fields: string[] = [];
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     const fieldMap: Record<string, unknown> = {
         title: input.title,
@@ -307,23 +298,22 @@ export function updateTask(
     for (const [key, value] of Object.entries(fieldMap)) {
         if (value !== undefined) {
             fields.push(`${key} = ?`);
-            params.push(value ?? null);
+            params.push((value ?? null) as string | number | null);
         }
     }
 
     if (fields.length > 0) {
         params.push(id);
-        execute(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, params, db);
+        await execute(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, params);
     }
 
     // Update assignees if provided
     if (input.assignee_ids !== undefined) {
-        execute('DELETE FROM task_assignments WHERE task_id = ?', [id], db);
+        await execute('DELETE FROM task_assignments WHERE task_id = ?', [id]);
         for (const userId of input.assignee_ids ?? []) {
-            execute(
+            await execute(
                 'INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)',
                 [id, userId],
-                db,
             );
         }
     }
@@ -334,10 +324,10 @@ export function updateTask(
         const newDeps = input.dependency_ids ?? [];
         if (newDeps.length > 0) {
             // Get all existing deps EXCEPT this task's current ones (since we're replacing them)
-            const allDeps = queryAll<{ task_id: number; depends_on_id: number }>(
-                'SELECT task_id, depends_on_id FROM task_dependencies WHERE task_id != ?', [id], db,
+            const allDeps = await queryAll<{ task_id: number; depends_on_id: number }>(
+                'SELECT task_id, depends_on_id FROM task_dependencies WHERE task_id != ?', [id],
             );
-            const allTaskIds = queryAll<{ id: number }>('SELECT id FROM tasks', [], db).map(r => r.id);
+            const allTaskIds = (await queryAll<{ id: number }>('SELECT id FROM tasks', [])).map(r => r.id);
 
             for (const depId of newDeps) {
                 if (wouldCreateCycle(depId, id, allDeps, allTaskIds)) {
@@ -348,49 +338,46 @@ export function updateTask(
             }
         }
 
-        execute('DELETE FROM task_dependencies WHERE task_id = ?', [id], db);
+        await execute('DELETE FROM task_dependencies WHERE task_id = ?', [id]);
         for (const depId of newDeps) {
-            execute(
+            await execute(
                 'INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)',
                 [id, depId],
-                db,
             );
         }
     }
 
-    return getTaskById(id, db);
+    return await getTaskById(id);
 }
 
-export function deleteTask(id: number, db?: Database): boolean {
-    const existing = queryOne<TaskRow>('SELECT id FROM tasks WHERE id = ?', [id], db);
+export async function deleteTask(id: number): Promise<boolean> {
+    const existing = await queryOne<TaskRow>('SELECT id FROM tasks WHERE id = ?', [id]);
     if (!existing) return false;
-    execute('DELETE FROM tasks WHERE id = ?', [id], db);
+    await execute('DELETE FROM tasks WHERE id = ?', [id]);
     return true;
 }
 
-export function changeTaskStatus(
+export async function changeTaskStatus(
     id: number,
     input: ChangeStatusInput,
     userId: number,
     userRole: string,
-    db?: Database,
-): TaskDetail | undefined {
-    const task = queryOne<TaskRow>('SELECT * FROM tasks WHERE id = ?', [id], db);
+): Promise<TaskDetail | undefined> {
+    const task = await queryOne<TaskRow>('SELECT * FROM tasks WHERE id = ?', [id]);
     if (!task) return undefined;
 
     // Workers can only change status of tasks assigned to them
     if (userRole === 'worker') {
-        const assignment = queryOne<{ id: number }>(
+        const assignment = await queryOne<{ id: number }>(
             'SELECT id FROM task_assignments WHERE task_id = ? AND user_id = ?',
             [id, userId],
-            db,
         );
         if (!assignment) {
             throw new Error('FORBIDDEN');
         }
     }
 
-    const params: unknown[] = [input.status];
+    const params: (string | number | null)[] = [input.status];
     let sql = 'UPDATE tasks SET status = ?';
 
     if (input.status === 'blocked' && input.blocked_reason) {
@@ -404,59 +391,54 @@ export function changeTaskStatus(
     sql += ' WHERE id = ?';
     params.push(id);
 
-    execute(sql, params, db);
+    await execute(sql, params);
 
-    return getTaskById(id, db);
+    return await getTaskById(id);
 }
 
-export function logTime(
+export async function logTime(
     taskId: number,
     userId: number,
     userRole: string,
     input: LogTimeInput,
-    db?: Database,
-): { id: number; hours: number; note: string | null; logged_at: string } {
-    const task = queryOne<{ id: number }>('SELECT id FROM tasks WHERE id = ?', [taskId], db);
+): Promise<{ id: number; hours: number; note: string | null; logged_at: string }> {
+    const task = await queryOne<{ id: number }>('SELECT id FROM tasks WHERE id = ?', [taskId]);
     if (!task) {
         throw new Error('TASK_NOT_FOUND');
     }
 
     // Workers can only log time on tasks assigned to them
     if (userRole === 'worker') {
-        const assignment = queryOne<{ id: number }>(
+        const assignment = await queryOne<{ id: number }>(
             'SELECT id FROM task_assignments WHERE task_id = ? AND user_id = ?',
             [taskId, userId],
-            db,
         );
         if (!assignment) {
             throw new Error('FORBIDDEN');
         }
     }
 
-    const result = execute(
+    const result = await execute(
         'INSERT INTO time_logs (task_id, user_id, hours, note) VALUES (?, ?, ?, ?)',
         [taskId, userId, input.hours, input.note ?? null],
-        db,
     );
 
     // Update actual_hours on the task
-    execute(
+    await execute(
         'UPDATE tasks SET actual_hours = (SELECT COALESCE(SUM(hours), 0) FROM time_logs WHERE task_id = ?) WHERE id = ?',
         [taskId, taskId],
-        db,
     );
 
-    const log = queryOne<{ id: number; hours: number; note: string | null; logged_at: string }>(
+    const log = await queryOne<{ id: number; hours: number; note: string | null; logged_at: string }>(
         'SELECT id, hours, note, logged_at FROM time_logs WHERE id = ?',
         [result.lastInsertRowid],
-        db,
     );
 
     return log!;
 }
 
-export function getMyTasks(userId: number, db?: Database) {
-    const rows = queryAll<TaskRow & { ship_name: string | null }>(
+export async function getMyTasks(userId: number) {
+    const rows = await queryAll<TaskRow & { ship_name: string | null }>(
         `SELECT t.*, s.name as ship_name
          FROM tasks t
          JOIN task_assignments ta ON ta.task_id = t.id
@@ -471,7 +453,6 @@ export function getMyTasks(userId: number, db?: Database) {
             END,
             t.created_at DESC`,
         [userId],
-        db,
     );
 
     return rows.map(row => ({
@@ -480,10 +461,10 @@ export function getMyTasks(userId: number, db?: Database) {
     }));
 }
 
-export function getTodayTasks(db?: Database) {
+export async function getTodayTasks() {
     const today = new Date().toISOString().split('T')[0];
 
-    const rows = queryAll<TaskRow & { ship_name: string | null }>(
+    const rows = await queryAll<TaskRow & { ship_name: string | null }>(
         `SELECT t.*, s.name as ship_name
          FROM tasks t
          LEFT JOIN ships s ON s.id = t.ship_id
@@ -498,7 +479,6 @@ export function getTodayTasks(db?: Database) {
             END,
             t.created_at DESC`,
         [today],
-        db,
     );
 
     return rows.map(row => ({
@@ -509,12 +489,11 @@ export function getTodayTasks(db?: Database) {
 
 // --- Split / Merge ---
 
-export function splitTask(
+export async function splitTask(
     id: number,
     splitAfterHours: number,
-    db?: Database,
-): { part1: TaskDetail; part2: TaskDetail } {
-    const original = queryOne<TaskRow>('SELECT * FROM tasks WHERE id = ?', [id], db);
+): Promise<{ part1: TaskDetail; part2: TaskDetail }> {
+    const original = await queryOne<TaskRow>('SELECT * FROM tasks WHERE id = ?', [id]);
     if (!original) throw new Error('TASK_NOT_FOUND');
 
     const totalHours = original.estimated_hours ?? 8;
@@ -529,28 +508,25 @@ export function splitTask(
     const baseTitle = original.title.replace(/\s*\(\d+\/\d+\)\s*$/, '');
 
     // Get original assignees
-    const assignees = queryAll<{ user_id: number }>(
+    const assignees = await queryAll<{ user_id: number }>(
         'SELECT user_id FROM task_assignments WHERE task_id = ?',
         [id],
-        db,
     );
 
     // Get original dependencies (tasks this task depends on)
-    const deps = queryAll<{ depends_on_id: number }>(
+    const deps = await queryAll<{ depends_on_id: number }>(
         'SELECT depends_on_id FROM task_dependencies WHERE task_id = ?',
         [id],
-        db,
     );
 
     // Get tasks that depend on this task (successors)
-    const successors = queryAll<{ task_id: number }>(
+    const successors = await queryAll<{ task_id: number }>(
         'SELECT task_id FROM task_dependencies WHERE depends_on_id = ?',
         [id],
-        db,
     );
 
     // Create Part 1
-    const part1Result = execute(
+    const part1Result = await execute(
         `INSERT INTO tasks (title, description, ship_id, ship_scope, category, priority,
             estimated_hours, estimated_cost, deadline, planned_start, split_group_id,
             weather_dependent, weather_min_temp, weather_max_humidity, weather_max_wind,
@@ -576,13 +552,12 @@ export function splitTask(
             original.logistics_notes ?? null,
             original.created_by,
         ],
-        db,
     );
     const part1Id = part1Result.lastInsertRowid;
 
     // Create Part 2
     const remainingHours = totalHours - splitAfterHours;
-    const part2Result = execute(
+    const part2Result = await execute(
         `INSERT INTO tasks (title, description, ship_id, ship_scope, category, priority,
             estimated_hours, estimated_cost, deadline, planned_start, split_group_id,
             weather_dependent, weather_min_temp, weather_max_humidity, weather_max_wind,
@@ -608,51 +583,48 @@ export function splitTask(
             original.logistics_notes ?? null,
             original.created_by,
         ],
-        db,
     );
     const part2Id = part2Result.lastInsertRowid;
 
     // Copy assignees to both parts
     for (const a of assignees) {
-        execute('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)', [part1Id, a.user_id], db);
-        execute('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)', [part2Id, a.user_id], db);
+        await execute('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)', [part1Id, a.user_id]);
+        await execute('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)', [part2Id, a.user_id]);
     }
 
     // Part 1 inherits original's dependencies
     for (const d of deps) {
-        execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [part1Id, d.depends_on_id], db);
+        await execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [part1Id, d.depends_on_id]);
     }
 
     // Part 2 depends on Part 1
-    execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [part2Id, part1Id], db);
+    await execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [part2Id, part1Id]);
 
     // Successors of original now depend on Part 2
     for (const s of successors) {
-        execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [s.task_id, part2Id], db);
+        await execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [s.task_id, part2Id]);
     }
 
     // Migrate relations before deletion to prevent ON DELETE CASCADE from destroying them
-    execute('UPDATE time_logs SET task_id = ? WHERE task_id = ?', [part1Id, id], db);
-    execute('UPDATE attachments SET task_id = ? WHERE task_id = ?', [part1Id, id], db);
-    execute('UPDATE task_materials SET task_id = ? WHERE task_id = ?', [part1Id, id], db);
+    await execute('UPDATE time_logs SET task_id = ? WHERE task_id = ?', [part1Id, id]);
+    await execute('UPDATE attachments SET task_id = ? WHERE task_id = ?', [part1Id, id]);
+    await execute('UPDATE task_materials SET task_id = ? WHERE task_id = ?', [part1Id, id]);
 
     // Delete original task (cascades assignments/deps via FK)
-    execute('DELETE FROM tasks WHERE id = ?', [id], db);
+    await execute('DELETE FROM tasks WHERE id = ?', [id]);
 
     return {
-        part1: getTaskById(part1Id, db)!,
-        part2: getTaskById(part2Id, db)!,
+        part1: (await getTaskById(part1Id))!,
+        part2: (await getTaskById(part2Id))!,
     };
 }
 
-export function mergeTasks(
+export async function mergeTasks(
     splitGroupId: number,
-    db?: Database,
-): TaskDetail {
-    const siblings = queryAll<TaskRow>(
+): Promise<TaskDetail> {
+    const siblings = await queryAll<TaskRow>(
         'SELECT * FROM tasks WHERE split_group_id = ? ORDER BY id ASC',
         [splitGroupId],
-        db,
     );
 
     if (siblings.length < 2) throw new Error('NOTHING_TO_MERGE');
@@ -667,10 +639,9 @@ export function mergeTasks(
     // Collect all unique assignees from all siblings
     const allAssignees = new Set<number>();
     for (const s of siblings) {
-        const assigns = queryAll<{ user_id: number }>(
+        const assigns = await queryAll<{ user_id: number }>(
             'SELECT user_id FROM task_assignments WHERE task_id = ?',
             [s.id],
-            db,
         );
         assigns.forEach(a => allAssignees.add(a.user_id));
     }
@@ -679,10 +650,9 @@ export function mergeTasks(
     const siblingIds = new Set(siblings.map(s => s.id));
     const externalDeps = new Set<number>();
     for (const s of siblings) {
-        const deps = queryAll<{ depends_on_id: number }>(
+        const deps = await queryAll<{ depends_on_id: number }>(
             'SELECT depends_on_id FROM task_dependencies WHERE task_id = ?',
             [s.id],
-            db,
         );
         deps.forEach(d => {
             if (!siblingIds.has(d.depends_on_id)) externalDeps.add(d.depends_on_id);
@@ -692,10 +662,9 @@ export function mergeTasks(
     // Collect external successors
     const externalSuccessors = new Set<number>();
     for (const s of siblings) {
-        const succs = queryAll<{ task_id: number }>(
+        const succs = await queryAll<{ task_id: number }>(
             'SELECT task_id FROM task_dependencies WHERE depends_on_id = ?',
             [s.id],
-            db,
         );
         succs.forEach(sc => {
             if (!siblingIds.has(sc.task_id)) externalSuccessors.add(sc.task_id);
@@ -711,7 +680,7 @@ export function mergeTasks(
         : null;
 
     // Create merged task
-    const result = execute(
+    const result = await execute(
         `INSERT INTO tasks (title, description, ship_id, ship_scope, category, priority,
             estimated_hours, estimated_cost, deadline, planned_start, split_group_id,
             weather_dependent, weather_min_temp, weather_max_humidity, weather_max_wind,
@@ -737,37 +706,36 @@ export function mergeTasks(
             first.logistics_notes ?? null,
             first.created_by,
         ],
-        db,
     );
     const mergedId = result.lastInsertRowid;
 
     // Restore assignees
     for (const userId of allAssignees) {
-        execute('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)', [mergedId, userId], db);
+        await execute('INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)', [mergedId, userId]);
     }
 
     // Restore external dependencies
     for (const depId of externalDeps) {
-        execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [mergedId, depId], db);
+        await execute('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [mergedId, depId]);
     }
 
     // Restore external successors
     for (const succId of externalSuccessors) {
         // Remove old dependency first (on sibling), then add new one (on merged)
-        execute('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [succId, mergedId], db);
+        await execute('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)', [succId, mergedId]);
     }
 
     // Migrate relations before deletion to prevent ON DELETE CASCADE from destroying them
     for (const s of siblings) {
-        execute('UPDATE time_logs SET task_id = ? WHERE task_id = ?', [mergedId, s.id], db);
-        execute('UPDATE attachments SET task_id = ? WHERE task_id = ?', [mergedId, s.id], db);
-        execute('UPDATE task_materials SET task_id = ? WHERE task_id = ?', [mergedId, s.id], db);
+        await execute('UPDATE time_logs SET task_id = ? WHERE task_id = ?', [mergedId, s.id]);
+        await execute('UPDATE attachments SET task_id = ? WHERE task_id = ?', [mergedId, s.id]);
+        await execute('UPDATE task_materials SET task_id = ? WHERE task_id = ?', [mergedId, s.id]);
     }
 
     // Delete all siblings
     for (const s of siblings) {
-        execute('DELETE FROM tasks WHERE id = ?', [s.id], db);
+        await execute('DELETE FROM tasks WHERE id = ?', [s.id]);
     }
 
-    return getTaskById(mergedId, db)!;
+    return (await getTaskById(mergedId))!;
 }

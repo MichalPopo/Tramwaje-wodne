@@ -1,5 +1,4 @@
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -95,14 +94,14 @@ interface ListFilters {
     low_stock?: boolean;
 }
 
-export function listItems(filters: ListFilters = {}, db?: Database): InventoryItem[] {
+export async function listItems(filters: ListFilters = {}): Promise<InventoryItem[]> {
     let sql = `
         SELECT i.*, s.short_name as ship_name
         FROM inventory_items i
         LEFT JOIN ships s ON s.id = i.ship_id
         WHERE 1=1
     `;
-    const params: unknown[] = [];
+    const params: (string | number | null)[] = [];
 
     if (filters.category) {
         sql += ' AND i.category = ?';
@@ -122,21 +121,21 @@ export function listItems(filters: ListFilters = {}, db?: Database): InventoryIt
 
     sql += ' ORDER BY i.category, i.name';
 
-    return queryAll<InventoryWithShip>(sql, params, db).map(toInventoryItem);
+    return (await queryAll<InventoryWithShip>(sql, params)).map(toInventoryItem);
 }
 
-export function getItem(id: number, db?: Database): InventoryItem | undefined {
-    const row = queryOne<InventoryWithShip>(
+export async function getItem(id: number): Promise<InventoryItem | undefined> {
+    const row = await queryOne<InventoryWithShip>(
         `SELECT i.*, s.short_name as ship_name
          FROM inventory_items i
          LEFT JOIN ships s ON s.id = i.ship_id
          WHERE i.id = ?`,
-        [id], db,
+        [id],
     );
     return row ? toInventoryItem(row) : undefined;
 }
 
-export function createItem(
+export async function createItem(
     data: {
         name: string;
         category: string;
@@ -147,9 +146,8 @@ export function createItem(
         ship_id?: number;
         notes?: string;
     },
-    db?: Database,
-): InventoryItem {
-    const result = execute(
+): Promise<InventoryItem> {
+    const result = await execute(
         `INSERT INTO inventory_items (name, category, unit, quantity, min_quantity, location, ship_id, notes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -162,12 +160,11 @@ export function createItem(
             data.ship_id ?? null,
             data.notes ?? null,
         ],
-        db,
     );
-    return getItem(result.lastInsertRowid, db)!;
+    return (await getItem(result.lastInsertRowid))!;
 }
 
-export function updateItem(
+export async function updateItem(
     id: number,
     data: {
         name?: string;
@@ -179,9 +176,8 @@ export function updateItem(
         ship_id?: number | null;
         notes?: string | null;
     },
-    db?: Database,
-): InventoryItem | undefined {
-    const existing = queryOne<InventoryRow>('SELECT * FROM inventory_items WHERE id = ?', [id], db);
+): Promise<InventoryItem | undefined> {
+    const existing = await queryOne<InventoryRow>('SELECT * FROM inventory_items WHERE id = ?', [id]);
     if (!existing) return undefined;
 
     const updated = {
@@ -195,50 +191,48 @@ export function updateItem(
         notes: data.notes !== undefined ? data.notes : existing.notes,
     };
 
-    execute(
+    await execute(
         `UPDATE inventory_items SET name=?, category=?, unit=?, quantity=?, min_quantity=?, location=?, ship_id=?, notes=?
          WHERE id = ?`,
         [updated.name, updated.category, updated.unit, updated.quantity, updated.min_quantity, updated.location, updated.ship_id, updated.notes, id],
-        db,
     );
 
-    return getItem(id, db);
+    return getItem(id);
 }
 
-export function deleteItem(id: number, db?: Database): boolean {
-    const result = execute('DELETE FROM inventory_items WHERE id = ?', [id], db);
+export async function deleteItem(id: number): Promise<boolean> {
+    const result = await execute('DELETE FROM inventory_items WHERE id = ?', [id]);
     return result.changes > 0;
 }
 
-export function adjustQuantity(
+export async function adjustQuantity(
     id: number,
     delta: number,
-    db?: Database,
-): InventoryItem | undefined {
-    const existing = queryOne<InventoryRow>('SELECT * FROM inventory_items WHERE id = ?', [id], db);
+): Promise<InventoryItem | undefined> {
+    const existing = await queryOne<InventoryRow>('SELECT * FROM inventory_items WHERE id = ?', [id]);
     if (!existing) return undefined;
 
     const newQty = Math.max(0, existing.quantity + delta);
-    execute('UPDATE inventory_items SET quantity = ? WHERE id = ?', [newQty, id], db);
+    await execute('UPDATE inventory_items SET quantity = ? WHERE id = ?', [newQty, id]);
 
-    return getItem(id, db);
+    return getItem(id);
 }
 
 // --- Task Materials ---
 
-export function getTaskMaterials(taskId: number, db?: Database): TaskMaterial[] {
-    const rows = queryAll<TaskMaterialRow & { current_stock: number | null }>(
+export async function getTaskMaterials(taskId: number): Promise<TaskMaterial[]> {
+    const rows = await queryAll<TaskMaterialRow & { current_stock: number | null }>(
         `SELECT tm.*, i.quantity as current_stock
          FROM task_materials tm
          LEFT JOIN inventory_items i ON i.id = tm.inventory_id
          WHERE tm.task_id = ?
          ORDER BY tm.id`,
-        [taskId], db,
+        [taskId],
     );
     return rows.map(toTaskMaterial);
 }
 
-export function addTaskMaterial(
+export async function addTaskMaterial(
     taskId: number,
     data: {
         name: string;
@@ -247,42 +241,40 @@ export function addTaskMaterial(
         inventory_id?: number;
         notes?: string;
     },
-    db?: Database,
-): TaskMaterial {
-    const result = execute(
+): Promise<TaskMaterial> {
+    const result = await execute(
         `INSERT INTO task_materials (task_id, inventory_id, name, quantity_needed, unit, notes)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [taskId, data.inventory_id ?? null, data.name, data.quantity_needed, data.unit ?? null, data.notes ?? null],
-        db,
     );
 
-    const row = queryOne<TaskMaterialRow & { current_stock: number | null }>(
+    const row = await queryOne<TaskMaterialRow & { current_stock: number | null }>(
         `SELECT tm.*, i.quantity as current_stock
          FROM task_materials tm
          LEFT JOIN inventory_items i ON i.id = tm.inventory_id
          WHERE tm.id = ?`,
-        [result.lastInsertRowid], db,
+        [result.lastInsertRowid],
     );
     return toTaskMaterial(row!);
 }
 
-export function removeTaskMaterial(id: number, db?: Database): boolean {
-    const result = execute('DELETE FROM task_materials WHERE id = ?', [id], db);
+export async function removeTaskMaterial(id: number): Promise<boolean> {
+    const result = await execute('DELETE FROM task_materials WHERE id = ?', [id]);
     return result.changes > 0;
 }
 
-export function toggleMaterialPurchased(id: number, purchased: boolean, db?: Database): boolean {
-    const result = execute(
+export async function toggleMaterialPurchased(id: number, purchased: boolean): Promise<boolean> {
+    const result = await execute(
         'UPDATE task_materials SET purchased = ? WHERE id = ?',
-        [purchased ? 1 : 0, id], db,
+        [purchased ? 1 : 0, id],
     );
     return result.changes > 0;
 }
 
 // --- Shopping list ---
 
-export function getShoppingList(db?: Database): ShoppingListItem[] {
-    const rows = queryAll<{
+export async function getShoppingList(): Promise<ShoppingListItem[]> {
+    const rows = await queryAll<{
         name: string;
         unit: string | null;
         total_needed: number;
@@ -303,7 +295,7 @@ export function getShoppingList(db?: Database): ShoppingListItem[] {
          WHERE tm.purchased = 0 AND t.status != 'done'
          GROUP BY COALESCE(i.id, tm.name), COALESCE(i.unit, tm.unit)
          ORDER BY name`,
-        [], db,
+        [],
     );
 
     return rows.map(row => {
@@ -320,8 +312,8 @@ export function getShoppingList(db?: Database): ShoppingListItem[] {
 
 // --- Context for AI ---
 
-export function getInventoryContext(db?: Database): string {
-    const lowStock = listItems({ low_stock: true }, db);
+export async function getInventoryContext(): Promise<string> {
+    const lowStock = await listItems({ low_stock: true });
     if (lowStock.length === 0) return 'Brak alertów magazynowych.';
 
     const lines = lowStock.map(i =>

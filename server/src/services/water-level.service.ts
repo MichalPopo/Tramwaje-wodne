@@ -1,5 +1,4 @@
 import { queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -77,10 +76,10 @@ interface CacheRow {
     fetched_at: string;
 }
 
-function getCached(db?: Database): WaterLevelData | null {
-    const row = queryOne<CacheRow>(
+async function getCached(): Promise<WaterLevelData | null> {
+    const row = await queryOne<CacheRow>(
         'SELECT * FROM water_level_cache ORDER BY id DESC LIMIT 1',
-        [], db,
+        [],
     );
     if (!row) return null;
 
@@ -94,11 +93,11 @@ function getCached(db?: Database): WaterLevelData | null {
     }
 }
 
-function saveToCache(data: WaterLevelData, db?: Database): void {
-    execute('DELETE FROM water_level_cache', [], db);
-    execute(
+async function saveToCache(data: WaterLevelData): Promise<void> {
+    await execute('DELETE FROM water_level_cache', []);
+    await execute(
         'INSERT INTO water_level_cache (data) VALUES (?)',
-        [JSON.stringify(data)], db,
+        [JSON.stringify(data)],
     );
 }
 
@@ -132,7 +131,7 @@ async function fetchFromIMGW(): Promise<WaterLevelData> {
 
 // --- Alert logic ---
 
-export function getAlerts(data: WaterLevelData): WaterLevelAlert[] {
+export async function getAlerts(data: WaterLevelData): Promise<WaterLevelAlert[]> {
     const alerts: WaterLevelAlert[] = [];
 
     if (data.water_level !== null) {
@@ -170,26 +169,26 @@ export function getAlerts(data: WaterLevelData): WaterLevelAlert[] {
 
 // --- Public API ---
 
-export async function getWaterLevel(db?: Database): Promise<WaterLevelResponse> {
+export async function getWaterLevel(): Promise<WaterLevelResponse> {
     // Check cache first
-    let data = getCached(db);
+    let data = await getCached();
 
     if (!data) {
         data = await fetchFromIMGW();
-        saveToCache(data, db);
+        await saveToCache(data);
     }
 
     return {
         data,
-        alerts: getAlerts(data),
+        alerts: await getAlerts(data),
     };
 }
 
 // --- AI Context builder ---
 
-export async function getWaterLevelForAI(db?: Database): Promise<string> {
+export async function getWaterLevelForAI(): Promise<string> {
     try {
-        const { data, alerts } = await getWaterLevel(db);
+        const { data, alerts } = await getWaterLevel();
         const lines: string[] = [
             `\n## Poziom wody — Zalew Wiślany (stacja ${data.station_name})`,
         ];

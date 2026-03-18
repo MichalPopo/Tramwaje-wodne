@@ -1,5 +1,4 @@
 import { queryAll, queryOne } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -63,8 +62,8 @@ export interface MonthlyEntry {
 
 // --- Helpers ---
 
-function getConfigNumber(key: string, fallback: number, db?: Database): number {
-    const row = queryOne<{ value: string }>('SELECT value FROM config WHERE key = ?', [key], db);
+async function getConfigNumber(key: string, fallback: number): Promise<number> {
+    const row = await queryOne<{ value: string }>('SELECT value FROM config WHERE key = ?', [key]);
     if (!row) return fallback;
     const n = parseFloat(row.value);
     return isNaN(n) ? fallback : n;
@@ -72,10 +71,10 @@ function getConfigNumber(key: string, fallback: number, db?: Database): number {
 
 // --- Service Functions ---
 
-export function getTaskCosts(taskId: number, db?: Database): TaskCost | null {
-    const hourlyRate = getConfigNumber('hourly_rate', 50, db);
+export async function getTaskCosts(taskId: number): Promise<TaskCost | null> {
+    const hourlyRate = await getConfigNumber('hourly_rate', 50);
 
-    const row = queryOne<{
+    const row = await queryOne<{
         id: number; title: string; ship_id: number | null; ship_name: string | null;
         category: string; status: string; estimated_cost: number; actual_cost: number;
         estimated_hours: number; actual_hours: number;
@@ -88,20 +87,18 @@ export function getTaskCosts(taskId: number, db?: Database): TaskCost | null {
          FROM tasks t
          LEFT JOIN ships s ON s.id = t.ship_id
          WHERE t.id = ?`,
-        [taskId], db
-    );
+        [taskId]);
     if (!row) return null;
 
     // Material cost: sum of (quantity_needed × best unit_price) for task_materials
-    const matRow = queryOne<{ total: number }>(
+    const matRow = await queryOne<{ total: number }>(
         `SELECT COALESCE(SUM(tm.quantity_needed * COALESCE(
             tm.actual_unit_price,
             (SELECT MIN(si.unit_price) FROM supplier_inventory si WHERE si.inventory_id = tm.inventory_id AND si.unit_price IS NOT NULL),
             0
         )), 0) as total
          FROM task_materials tm WHERE tm.task_id = ?`,
-        [taskId], db
-    );
+        [taskId]);
     const materialCost = matRow?.total ?? 0;
 
     // Labor cost: actual_hours × hourly_rate
@@ -115,10 +112,10 @@ export function getTaskCosts(taskId: number, db?: Database): TaskCost | null {
     };
 }
 
-export function getShipCosts(db?: Database): ShipCost[] {
-    const hourlyRate = getConfigNumber('hourly_rate', 50, db);
+export async function getShipCosts(): Promise<ShipCost[]> {
+    const hourlyRate = await getConfigNumber('hourly_rate', 50);
 
-    const rows = queryAll<{
+    const rows = await queryAll<{
         ship_id: number | null; ship_name: string; task_count: number;
         estimated_cost: number; actual_cost: number; actual_hours: number;
     }>(
@@ -132,12 +129,11 @@ export function getShipCosts(db?: Database): ShipCost[] {
          LEFT JOIN ships s ON s.id = t.ship_id
          GROUP BY t.ship_id
          ORDER BY ship_name`,
-        [], db
-    );
+        []);
 
-    return rows.map(r => {
-        // Material cost per ship
-        const matRow = queryOne<{ total: number }>(
+    const results: ShipCost[] = [];
+    for (const r of rows) {
+        const matRow = await queryOne<{ total: number }>(
             `SELECT COALESCE(SUM(tm.quantity_needed * COALESCE(
                 tm.actual_unit_price,
                 (SELECT MIN(si.unit_price) FROM supplier_inventory si WHERE si.inventory_id = tm.inventory_id AND si.unit_price IS NOT NULL),
@@ -146,12 +142,11 @@ export function getShipCosts(db?: Database): ShipCost[] {
              FROM task_materials tm
              JOIN tasks t ON t.id = tm.task_id
              WHERE ${r.ship_id ? 't.ship_id = ?' : 't.ship_id IS NULL'}`,
-            r.ship_id ? [r.ship_id] : [], db
-        );
+            r.ship_id ? [r.ship_id] : []);
         const materialCost = matRow?.total ?? 0;
         const laborCost = r.actual_hours * hourlyRate;
 
-        return {
+        results.push({
             ship_id: r.ship_id,
             ship_name: r.ship_name,
             task_count: r.task_count,
@@ -160,14 +155,15 @@ export function getShipCosts(db?: Database): ShipCost[] {
             material_cost: Math.round(materialCost * 100) / 100,
             labor_cost: Math.round(laborCost * 100) / 100,
             total_actual: Math.round((r.actual_cost + materialCost + laborCost) * 100) / 100,
-        };
-    });
+        });
+    }
+    return results;
 }
 
-export function getCategoryCosts(db?: Database): CategoryCost[] {
-    const hourlyRate = getConfigNumber('hourly_rate', 50, db);
+export async function getCategoryCosts(): Promise<CategoryCost[]> {
+    const hourlyRate = await getConfigNumber('hourly_rate', 50);
 
-    const rows = queryAll<{
+    const rows = await queryAll<{
         category: string; task_count: number;
         estimated_cost: number; actual_cost: number; actual_hours: number;
     }>(
@@ -179,11 +175,11 @@ export function getCategoryCosts(db?: Database): CategoryCost[] {
          FROM tasks t
          GROUP BY t.category
          ORDER BY estimated_cost DESC`,
-        [], db
-    );
+        []);
 
-    return rows.map(r => {
-        const matRow = queryOne<{ total: number }>(
+    const results: CategoryCost[] = [];
+    for (const r of rows) {
+        const matRow = await queryOne<{ total: number }>(
             `SELECT COALESCE(SUM(tm.quantity_needed * COALESCE(
                 tm.actual_unit_price,
                 (SELECT MIN(si.unit_price) FROM supplier_inventory si WHERE si.inventory_id = tm.inventory_id AND si.unit_price IS NOT NULL),
@@ -192,12 +188,11 @@ export function getCategoryCosts(db?: Database): CategoryCost[] {
              FROM task_materials tm
              JOIN tasks t ON t.id = tm.task_id
              WHERE t.category = ?`,
-            [r.category], db
-        );
+            [r.category]);
         const materialCost = matRow?.total ?? 0;
         const laborCost = r.actual_hours * hourlyRate;
 
-        return {
+        results.push({
             category: r.category,
             task_count: r.task_count,
             estimated_cost: Math.round(r.estimated_cost * 100) / 100,
@@ -205,15 +200,16 @@ export function getCategoryCosts(db?: Database): CategoryCost[] {
             material_cost: Math.round(materialCost * 100) / 100,
             labor_cost: Math.round(laborCost * 100) / 100,
             total_actual: Math.round((r.actual_cost + materialCost + laborCost) * 100) / 100,
-        };
-    });
+        });
+    }
+    return results;
 }
 
-export function getSeasonSummary(db?: Database): SeasonSummary {
-    const budget = getConfigNumber('season_budget', 50000, db);
-    const hourlyRate = getConfigNumber('hourly_rate', 50, db);
+export async function getSeasonSummary(): Promise<SeasonSummary> {
+    const budget = await getConfigNumber('season_budget', 50000);
+    const hourlyRate = await getConfigNumber('hourly_rate', 50);
 
-    const stats = queryOne<{
+    const stats = await queryOne<{
         task_count: number; done_count: number;
         total_estimated: number; total_actual_cost: number; total_hours: number;
     }>(
@@ -223,48 +219,45 @@ export function getSeasonSummary(db?: Database): SeasonSummary {
                 COALESCE(SUM(actual_cost), 0) as total_actual_cost,
                 COALESCE(SUM(actual_hours), 0) as total_hours
          FROM tasks`,
-        [], db
-    )!;
+        [])!;
 
-    const matRow = queryOne<{ total: number }>(
+    const matRow = await queryOne<{ total: number }>(
         `SELECT COALESCE(SUM(tm.quantity_needed * COALESCE(
             tm.actual_unit_price,
             (SELECT MIN(si.unit_price) FROM supplier_inventory si WHERE si.inventory_id = tm.inventory_id AND si.unit_price IS NOT NULL),
             0
         )), 0) as total
          FROM task_materials tm`,
-        [], db
-    );
+        []);
     const totalMaterialCost = matRow?.total ?? 0;
-    const totalLaborCost = stats.total_hours * hourlyRate;
-    const totalSpent = stats.total_actual_cost + totalMaterialCost + totalLaborCost;
+    const totalLaborCost = (stats?.total_hours ?? 0) * hourlyRate;
+    const totalSpent = (stats?.total_actual_cost ?? 0) + totalMaterialCost + totalLaborCost;
 
     return {
         budget,
         hourly_rate: hourlyRate,
-        total_estimated: Math.round(stats.total_estimated * 100) / 100,
-        total_actual_cost: Math.round(stats.total_actual_cost * 100) / 100,
+        total_estimated: Math.round((stats?.total_estimated ?? 0) * 100) / 100,
+        total_actual_cost: Math.round((stats?.total_actual_cost ?? 0) * 100) / 100,
         total_material_cost: Math.round(totalMaterialCost * 100) / 100,
         total_labor_cost: Math.round(totalLaborCost * 100) / 100,
         total_spent: Math.round(totalSpent * 100) / 100,
         remaining: Math.round((budget - totalSpent) * 100) / 100,
         percent_used: budget > 0 ? Math.round((totalSpent / budget) * 10000) / 100 : 0,
-        task_count: stats.task_count,
-        done_count: stats.done_count,
+        task_count: stats?.task_count ?? 0,
+        done_count: stats?.done_count ?? 0,
     };
 }
 
-export function getMonthlyTrend(db?: Database): MonthlyEntry[] {
-    const hourlyRate = getConfigNumber('hourly_rate', 50, db);
+export async function getMonthlyTrend(): Promise<MonthlyEntry[]> {
+    const hourlyRate = await getConfigNumber('hourly_rate', 50);
 
     // Get time logs grouped by month
-    const laborRows = queryAll<{ month: string; hours: number }>(
+    const laborRows = await queryAll<{ month: string; hours: number }>(
         `SELECT strftime('%Y-%m', logged_at) as month, SUM(hours) as hours
          FROM time_logs
          GROUP BY month
          ORDER BY month`,
-        [], db
-    );
+        []);
 
     // Build a map of months
     const monthMap = new Map<string, { material: number; labor: number }>();
@@ -276,7 +269,7 @@ export function getMonthlyTrend(db?: Database): MonthlyEntry[] {
     }
 
     // Material costs by month: use task updated_at as proxy
-    const matRows = queryAll<{ month: string; cost: number }>(
+    const matRows = await queryAll<{ month: string; cost: number }>(
         `SELECT strftime('%Y-%m', t.updated_at) as month,
                 COALESCE(SUM(tm.quantity_needed * COALESCE(
                     tm.actual_unit_price,
@@ -288,8 +281,7 @@ export function getMonthlyTrend(db?: Database): MonthlyEntry[] {
          WHERE tm.purchased = 1
          GROUP BY month
          ORDER BY month`,
-        [], db
-    );
+        []);
 
     for (const r of matRows) {
         const entry = monthMap.get(r.month) || { material: 0, labor: 0 };

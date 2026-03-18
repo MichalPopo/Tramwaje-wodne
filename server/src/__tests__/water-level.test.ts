@@ -31,7 +31,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             expect(alerts.length).toBe(1);
             expect(alerts[0].level).toBe('ok');
             expect(alerts[0].message).toContain('OK');
@@ -50,7 +50,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             expect(alerts.length).toBe(1);
             expect(alerts[0].level).toBe('warning');
             expect(alerts[0].message).toContain('455');
@@ -70,7 +70,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             expect(alerts.length).toBe(1);
             expect(alerts[0].level).toBe('danger');
             expect(alerts[0].message).toContain('KRYTYCZNIE');
@@ -90,7 +90,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             expect(alerts.length).toBe(0);
         });
     });
@@ -112,7 +112,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             // Should have OK level alert + ice warning
             expect(alerts.length).toBe(2);
             const iceAlert = alerts.find(a => a.message.includes('lodowe'));
@@ -134,7 +134,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             const iceAlert = alerts.find(a => a.message.includes('lodowe'));
             expect(iceAlert).toBeDefined();
             expect(iceAlert!.level).toBe('danger');
@@ -154,7 +154,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             const iceAlert = alerts.find(a => a.message.includes('lodowe'));
             expect(iceAlert).toBeUndefined();
         });
@@ -177,7 +177,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alerts = getAlerts(data);
+            const alerts = await getAlerts(data);
             expect(alerts.length).toBe(2);
             expect(alerts[0].level).toBe('danger');
             expect(alerts[1].level).toBe('danger');
@@ -197,7 +197,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 fetched_at: new Date().toISOString(),
             };
 
-            const alertsAt460 = getAlerts(dataAt460);
+            const alertsAt460 = await getAlerts(dataAt460);
             expect(alertsAt460[0].level).toBe('ok');
 
             // Exactly 440 → should be warning (not below 440)
@@ -206,7 +206,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 water_level: 440,
             };
 
-            const alertsAt440 = getAlerts(dataAt440);
+            const alertsAt440 = await getAlerts(dataAt440);
             expect(alertsAt440[0].level).toBe('warning');
 
             // 439 → danger
@@ -215,7 +215,7 @@ describe('Water Level — Moduł 2.7: Monitoring poziomu wody', () => {
                 water_level: 439,
             };
 
-            const alertsAt439 = getAlerts(dataAt439);
+            const alertsAt439 = await getAlerts(dataAt439);
             expect(alertsAt439[0].level).toBe('danger');
         });
     });

@@ -1,5 +1,4 @@
 import { queryAll, queryOne } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -77,7 +76,7 @@ export interface DAG {
     nodes: Set<number>;
 }
 
-export function buildDAG(taskIds: number[], deps: DepRow[]): DAG {
+export async function buildDAG(taskIds: number[], deps: DepRow[]): Promise<DAG> {
     const successors = new Map<number, number[]>();
     const predecessors = new Map<number, number[]>();
     const nodes = new Set<number>(taskIds);
@@ -111,7 +110,7 @@ export interface TopologicalSortResult {
  * If cycles exist, back-edges are removed until the graph is a DAG.
  * Returns the sorted order + any edges that were broken.
  */
-export function topologicalSort(dag: DAG): TopologicalSortResult {
+export async function topologicalSort(dag: DAG): Promise<TopologicalSortResult> {
     // Work on copies so we don't mutate the original DAG
     const inDegree = new Map<number, number>();
     const succCopy = new Map<number, number[]>();
@@ -267,7 +266,7 @@ const PRIORITY_WEIGHT: Record<string, number> = {
  *
  * Tasks are scheduled in priority order (critical first, then dependencies).
  */
-export function resourceConstrainedSchedule(
+export async function resourceConstrainedSchedule(
     dag: DAG,
     topoOrder: number[],
     durations: Map<number, number>,
@@ -275,7 +274,7 @@ export function resourceConstrainedSchedule(
     totalWorkers: number,
     taskAssignees?: Map<number, number[]>,
     plannedStartOffsets?: Map<number, number>,
-): Map<number, CPMNode> {
+): Promise<Map<number, CPMNode>> {
     const nodes = new Map<number, CPMNode>();
 
     // Initialize all nodes
@@ -533,13 +532,13 @@ export function resourceConstrainedSchedule(
 
 // --- Main entry point ---
 
-export function getGanttData(filters: GanttFilters = {}, db?: Database): {
+export async function getGanttData(filters: GanttFilters = {}): Promise<{
     tasks: GanttTask[];
     total_duration_hours: number;
     total_workers: number;
     daily_capacity_hours: number;
     broken_edges: { from: number; to: number }[];
-} {
+}> {
     // 1. Fetch all non-done tasks
     let taskSql = `
         SELECT t.id, t.title, t.status, t.priority, t.category,
@@ -551,7 +550,7 @@ export function getGanttData(filters: GanttFilters = {}, db?: Database): {
         LEFT JOIN ships s ON s.id = t.ship_id
         WHERE 1=1
     `;
-    const taskParams: unknown[] = [];
+    const taskParams: (string | number | null)[] = [];
 
     if (filters.ship_id) {
         taskSql += ' AND t.ship_id = ?';
@@ -564,20 +563,20 @@ export function getGanttData(filters: GanttFilters = {}, db?: Database): {
 
     taskSql += ' ORDER BY t.id';
 
-    const taskRows = queryAll<TaskRow>(taskSql, taskParams, db);
+    const taskRows = await queryAll<TaskRow>(taskSql, taskParams);
 
     if (taskRows.length === 0) {
         return { tasks: [], total_duration_hours: 0, total_workers: 0, daily_capacity_hours: 0, broken_edges: [] };
     }
 
     // Count active workers for resource capacity
-    const workerCount = queryOne<{ cnt: number }>(
+    const workerCount = await queryOne<{ cnt: number }>(
         "SELECT COUNT(*) as cnt FROM users WHERE is_active = 1 AND role = 'worker'",
-        [], db,
+        [],
     );
-    const adminCount = queryOne<{ cnt: number }>(
+    const adminCount = await queryOne<{ cnt: number }>(
         "SELECT COUNT(*) as cnt FROM users WHERE is_active = 1 AND role = 'admin'",
-        [], db,
+        [],
     );
     // Total workforce = workers + admins (admin also works)
     const totalWorkers = Math.max(1, (workerCount?.cnt ?? 0) + (adminCount?.cnt ?? 0));
@@ -586,9 +585,9 @@ export function getGanttData(filters: GanttFilters = {}, db?: Database): {
     const taskMap = new Map<number, TaskRow>(taskRows.map(r => [r.id, r]));
 
     // 2. Fetch all dependencies
-    const allDeps = queryAll<DepRow>(
+    const allDeps = await queryAll<DepRow>(
         'SELECT task_id, depends_on_id FROM task_dependencies',
-        [], db,
+        [],
     );
 
     const relevantDeps = allDeps.filter(
@@ -597,12 +596,12 @@ export function getGanttData(filters: GanttFilters = {}, db?: Database): {
 
     // 3. Fetch assignees
     const placeholders = taskIds.map(() => '?').join(',');
-    const assigneeRows = queryAll<AssigneeRow>(
+    const assigneeRows = await queryAll<AssigneeRow>(
         `SELECT ta.task_id, ta.user_id, u.name as user_name
          FROM task_assignments ta
          JOIN users u ON u.id = ta.user_id
          WHERE ta.task_id IN (${placeholders})`,
-        taskIds, db,
+        taskIds,
     );
 
     const assigneeMap = new Map<number, { id: number; name: string }[]>();
@@ -614,8 +613,8 @@ export function getGanttData(filters: GanttFilters = {}, db?: Database): {
     }
 
     // 4. Build DAG and schedule with resource constraints
-    const dag = buildDAG(taskIds, relevantDeps);
-    const { sorted: topoOrder, brokenEdges } = topologicalSort(dag);
+    const dag = await buildDAG(taskIds, relevantDeps);
+    const { sorted: topoOrder, brokenEdges } = await topologicalSort(dag);
 
     const durations = new Map<number, number>();
     const priorities = new Map<number, string>();
@@ -643,7 +642,7 @@ export function getGanttData(filters: GanttFilters = {}, db?: Database): {
         taskAssigneeIds.set(taskId, assignees.map(a => a.id));
     }
 
-    const cpmNodes = resourceConstrainedSchedule(
+    const cpmNodes = await resourceConstrainedSchedule(
         dag, topoOrder, durations, priorities, totalWorkers, taskAssigneeIds, plannedStarts,
     );
 

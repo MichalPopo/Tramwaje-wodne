@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI, type Content } from '@google/generative-ai';
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 import { getForecast } from './weather.service.js';
 import { getInventoryContext } from './inventory.service.js';
 import { getEquipmentContext } from './equipment.service.js';
@@ -42,7 +41,7 @@ export interface AiChatResult {
 
 const MAX_RETRIES = 3;
 
-function extractStatusCode(error: unknown): number {
+async function extractStatusCode(error: unknown): Promise<number> {
     if (error && typeof error === 'object') {
         const e = error as { status?: number; statusCode?: number; message?: string };
         if (e.status) return e.status;
@@ -71,7 +70,7 @@ async function getWeatherContext(): Promise<string> {
     }
 }
 
-function buildSystemPrompt(
+async function buildSystemPrompt(
     userName: string,
     userRole: string,
     tasksContext: string,
@@ -84,7 +83,7 @@ function buildSystemPrompt(
     waterLevelContext: string,
     engineHoursContext: string,
     tanksContext: string,
-): string {
+): Promise<string> {
     return `Jesteś asystentem firmy "Tramwaje Wodne Zalewu Wiślanego".
 Firma operuje dwa statki pasażerskie na Zalewie Wiślanym:
 
@@ -152,7 +151,7 @@ Gdy użytkownik prosi o ZNALEZIENIE/DODANIE DOSTAWCY (np. "znajdź dostawcę", "
 WAŻNE: Znaczniki JSON dodawaj TYLKO gdy użytkownik wyraźnie prosi o stworzenie/dodanie/znalezienie. Przy zwykłych pytaniach odpowiadaj normalnie bez znaczników.`;
 }
 
-function getTasksContext(userId: number, userRole: string, db?: Database): string {
+async function getTasksContext(userId: number, userRole: string): Promise<string> {
     const sql = userRole === 'admin'
         ? `SELECT t.title, t.status, t.category, t.priority, t.estimated_hours, t.deadline, s.short_name as ship
            FROM tasks t LEFT JOIN ships s ON s.id = t.ship_id
@@ -167,8 +166,8 @@ function getTasksContext(userId: number, userRole: string, db?: Database): strin
            ORDER BY CASE t.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 END`;
 
     const params = userRole === 'admin' ? [] : [userId];
-    const tasks = queryAll<{ title: string; status: string; category: string; priority: string; estimated_hours: number | null; deadline: string | null; ship: string | null }>(
-        sql, params, db,
+    const tasks = await queryAll<{ title: string; status: string; category: string; priority: string; estimated_hours: number | null; deadline: string | null; ship: string | null }>(
+        sql, params,
     );
 
     if (tasks.length === 0) return '';
@@ -180,9 +179,9 @@ function getTasksContext(userId: number, userRole: string, db?: Database): strin
     }).join('\n');
 }
 
-function getWorkloadContext(db?: Database): string {
+async function getWorkloadContext(): Promise<string> {
     // Get tasks with deadlines in the next 7 days
-    const rows = queryAll<{ deadline: string; total_hours: number; task_count: number }>(
+    const rows = await queryAll<{ deadline: string; total_hours: number; task_count: number }>(
         `SELECT deadline, SUM(COALESCE(estimated_hours, 4)) as total_hours, COUNT(*) as task_count
          FROM tasks
          WHERE status IN ('pending', 'in_progress')
@@ -191,15 +190,15 @@ function getWorkloadContext(db?: Database): string {
            AND deadline <= date('now', '+7 days')
          GROUP BY deadline
          ORDER BY deadline`,
-        [], db,
+        [],
     );
 
     // Also get tasks without deadline (backlog)
-    const backlog = queryAll<{ total_hours: number; task_count: number }>(
+    const backlog = await queryAll<{ total_hours: number; task_count: number }>(
         `SELECT SUM(COALESCE(estimated_hours, 4)) as total_hours, COUNT(*) as task_count
          FROM tasks
          WHERE status IN ('pending', 'in_progress') AND deadline IS NULL`,
-        [], db,
+        [],
     );
 
     const MAX_DAILY_HOURS = 8; // per worker
@@ -224,9 +223,9 @@ function getWorkloadContext(db?: Database): string {
     return lines.join('\n');
 }
 
-function getShipsContext(db?: Database): string {
-    const ships = queryAll<{ name: string; specs: string }>(
-        'SELECT name, specs FROM ships ORDER BY id', [], db,
+async function getShipsContext(): Promise<string> {
+    const ships = await queryAll<{ name: string; specs: string }>(
+        'SELECT name, specs FROM ships ORDER BY id', [],
     );
 
     return ships.map(s => {
@@ -244,43 +243,41 @@ function getShipsContext(db?: Database): string {
 
 // --- Conversation management ---
 
-export function getConversations(userId: number, db?: Database): ConversationRow[] {
-    return queryAll<ConversationRow>(
+export async function getConversations(userId: number): Promise<ConversationRow[]> {
+    return await queryAll<ConversationRow>(
         'SELECT * FROM ai_conversations WHERE user_id = ? ORDER BY created_at DESC',
-        [userId], db,
+        [userId],
     );
 }
 
-export function getConversationMessages(
+export async function getConversationMessages(
     conversationId: number,
     userId: number,
-    db?: Database,
-): MessageRow[] {
+): Promise<MessageRow[]> {
     // Verify ownership
-    const conv = queryOne<ConversationRow>(
+    const conv = await queryOne<ConversationRow>(
         'SELECT * FROM ai_conversations WHERE id = ? AND user_id = ?',
-        [conversationId, userId], db,
+        [conversationId, userId],
     );
     if (!conv) throw new Error('CONVERSATION_NOT_FOUND');
 
-    return queryAll<MessageRow>(
+    return await queryAll<MessageRow>(
         'SELECT * FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC',
-        [conversationId], db,
+        [conversationId],
     );
 }
 
-export function deleteConversation(
+export async function deleteConversation(
     conversationId: number,
     userId: number,
-    db?: Database,
-): boolean {
-    const conv = queryOne<ConversationRow>(
+): Promise<boolean> {
+    const conv = await queryOne<ConversationRow>(
         'SELECT * FROM ai_conversations WHERE id = ? AND user_id = ?',
-        [conversationId, userId], db,
+        [conversationId, userId],
     );
     if (!conv) return false;
 
-    execute('DELETE FROM ai_conversations WHERE id = ?', [conversationId], db);
+    await execute('DELETE FROM ai_conversations WHERE id = ?', [conversationId]);
     return true;
 }
 
@@ -292,52 +289,51 @@ export async function sendMessage(
     userRole: string,
     message: string,
     conversationId?: number,
-    db?: Database,
 ): Promise<AiChatResult> {
     // Build system prompt with dynamic context
-    const tasksContext = getTasksContext(userId, userRole, db);
-    const shipsContext = getShipsContext(db);
+    const tasksContext = await getTasksContext(userId, userRole);
+    const shipsContext = await getShipsContext();
     const weatherContext = await getWeatherContext();
-    const inventoryCtx = getInventoryContext(db);
-    const equipmentCtx = getEquipmentContext(db);
-    const supplierCtx = getSupplierContext(db);
-    const workloadCtx = getWorkloadContext(db);
-    const waterLevelCtx = await getWaterLevelForAI(db);
-    const engineHoursCtx = getEngineHoursForAI(db);
-    const tanksCtx = getTanksForAI(db);
-    const systemPrompt = buildSystemPrompt(userName, userRole, tasksContext, shipsContext, weatherContext, inventoryCtx, equipmentCtx, supplierCtx, workloadCtx, waterLevelCtx, engineHoursCtx, tanksCtx);
+    const inventoryCtx = await getInventoryContext();
+    const equipmentCtx = await getEquipmentContext();
+    const supplierCtx = await getSupplierContext();
+    const workloadCtx = await getWorkloadContext();
+    const waterLevelCtx = await getWaterLevelForAI();
+    const engineHoursCtx = await getEngineHoursForAI();
+    const tanksCtx = await getTanksForAI();
+    const systemPrompt = await buildSystemPrompt(userName, userRole, tasksContext, shipsContext, weatherContext, inventoryCtx, equipmentCtx, supplierCtx, workloadCtx, waterLevelCtx, engineHoursCtx, tanksCtx);
 
     // Get or create conversation
     let convId = conversationId;
     if (convId) {
         // Verify ownership
-        const existing = queryOne<ConversationRow>(
+        const existing = await queryOne<ConversationRow>(
             'SELECT * FROM ai_conversations WHERE id = ? AND user_id = ?',
-            [convId, userId], db,
+            [convId, userId],
         );
         if (!existing) throw new Error('CONVERSATION_NOT_FOUND');
     } else {
         // Create new conversation with first 50 chars of message as title
         const title = message.length > 50 ? message.slice(0, 47) + '...' : message;
-        const result = execute(
+        const result = await execute(
             'INSERT INTO ai_conversations (user_id, title) VALUES (?, ?)',
-            [userId, title], db,
+            [userId, title],
         );
         convId = result.lastInsertRowid;
     }
 
     // Save user message
-    const userMsgResult = execute(
+    const userMsgResult = await execute(
         'INSERT INTO ai_messages (conversation_id, role, content) VALUES (?, ?, ?)',
-        [convId, 'user', message], db,
+        [convId, 'user', message],
     );
 
     // Load conversation history (last 20 messages for context)
-    const history = queryAll<MessageRow>(
+    const history = await queryAll<MessageRow>(
         `SELECT role, content FROM ai_messages
          WHERE conversation_id = ? AND id != ?
          ORDER BY created_at ASC`,
-        [convId, userMsgResult.lastInsertRowid], db,
+        [convId, userMsgResult.lastInsertRowid],
     );
 
     // Build Gemini history
@@ -349,7 +345,7 @@ export async function sendMessage(
     // Call Gemini with key rotation + retry
     let lastError: unknown;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        const { client: genAI, keyId } = getAvailableGeminiClient(db);
+        const { client: genAI, keyId } = await getAvailableGeminiClient();
         const model = genAI.getGenerativeModel({
             model: 'gemini-2.5-flash-lite',
             systemInstruction: systemPrompt,
@@ -361,14 +357,14 @@ export async function sendMessage(
             const responseText = result.response.text();
 
             // Save assistant response
-            execute(
+            await execute(
                 'INSERT INTO ai_messages (conversation_id, role, content) VALUES (?, ?, ?)',
-                [convId, 'assistant', responseText], db,
+                [convId, 'assistant', responseText],
             );
 
-            const assistantMsg = queryOne<MessageRow>(
+            const assistantMsg = await queryOne<MessageRow>(
                 'SELECT * FROM ai_messages WHERE conversation_id = ? AND role = ? ORDER BY id DESC LIMIT 1',
-                [convId, 'assistant'], db,
+                [convId, 'assistant'],
             );
 
             return {
@@ -382,9 +378,9 @@ export async function sendMessage(
             };
         } catch (error) {
             lastError = error;
-            const status = extractStatusCode(error);
+            const status = await extractStatusCode(error);
             if (status === 429 || status === 403) {
-                reportKeyError(keyId, status, db);
+                await reportKeyError(keyId, status);
                 continue; // retry with next key
             }
             break; // non-retryable error
@@ -392,9 +388,9 @@ export async function sendMessage(
     }
 
     // All retries failed — clean up
-    execute('DELETE FROM ai_messages WHERE id = ?', [userMsgResult.lastInsertRowid], db);
+    await execute('DELETE FROM ai_messages WHERE id = ?', [userMsgResult.lastInsertRowid]);
     if (!conversationId) {
-        execute('DELETE FROM ai_conversations WHERE id = ?', [convId], db);
+        await execute('DELETE FROM ai_conversations WHERE id = ?', [convId]);
     }
     throw lastError;
 }
@@ -402,7 +398,7 @@ export async function sendMessage(
 // --- Supplier search with Google Search grounding (REST API) ---
 
 export async function searchSupplier(query: string): Promise<{ text: string }> {
-    const { rawKey, keyId } = getAvailableRawKey();
+    const { rawKey, keyId } = await getAvailableRawKey();
 
     const prompt = `Szukam dostawcy/sklepu w regionie Zalewu Wiślanego (Tolkmicko, Elbląg, Frombork, Malbork, Trójmiasto).
 Zapytanie: ${query}
@@ -471,17 +467,16 @@ export async function generateTaskMaterials(
     category: string,
     shipId: number | null,
     description?: string,
-    db?: Database,
 ): Promise<{ materials: MaterialSuggestion[] }> {
-    const { client: genAI, keyId } = getAvailableGeminiClient(db);
+    const { client: genAI, keyId } = await getAvailableGeminiClient();
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     // Gather ship context
     let shipContext = '';
     if (shipId) {
-        const ship = queryOne<{ name: string; short_name: string; specs: string }>(
+        const ship = await queryOne<{ name: string; short_name: string; specs: string }>(
             'SELECT name, short_name, specs FROM ships WHERE id = ?',
-            [shipId], db,
+            [shipId],
         );
         if (ship) {
             shipContext = `\nStatek: ${ship.name} (${ship.short_name})\nDane techniczne: ${ship.specs}`;
@@ -489,9 +484,9 @@ export async function generateTaskMaterials(
     }
 
     // Gather inventory context
-    const invItems = queryAll<{ id: number; name: string; category: string; quantity: number; unit: string }>(
+    const invItems = await queryAll<{ id: number; name: string; category: string; quantity: number; unit: string }>(
         'SELECT id, name, category, quantity, unit FROM inventory_items ORDER BY name',
-        [], db,
+        [],
     );
     const invContext = invItems.length > 0
         ? invItems.map(i => `- ${i.name}: ${i.quantity} ${i.unit} (id:${i.id})`).join('\n')

@@ -20,8 +20,8 @@ interface ShipRow {
  * GET /api/ships
  * List all ships with specs
  */
-router.get('/', (_req: Request, res: Response) => {
-    const ships = queryAll<ShipRow>('SELECT * FROM ships ORDER BY id');
+router.get('/', async (_req: Request, res: Response) => {
+    const ships = await queryAll<ShipRow>('SELECT * FROM ships ORDER BY id');
     const result = ships.map(s => ({
         ...s,
         specs: JSON.parse(s.specs || '{}'),
@@ -33,20 +33,20 @@ router.get('/', (_req: Request, res: Response) => {
  * GET /api/ships/:id
  * Single ship detail
  */
-router.get('/:id', (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/:id', async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID statku' });
         return;
     }
 
-    const ship = queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
+    const ship = await queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
     if (!ship) {
         res.status(404).json({ error: 'Statek nie znaleziony' });
         return;
     }
 
-    const taskStats = queryOne<{ total: number; done: number; in_progress: number }>(
+    const taskStats = await queryOne<{ total: number; done: number; in_progress: number }>(
         `SELECT
             COUNT(*) as total,
             SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
@@ -67,7 +67,7 @@ router.get('/:id', (req: Request, res: Response) => {
  * POST /api/ships
  * Create a new ship (admin only)
  */
-router.post('/', roleGuard('admin'), (req: Request, res: Response) => {
+router.post('/', roleGuard('admin'), async (req: Request, res: Response) => {
     const { name, short_name, specs, notes } = req.body;
 
     if (!name || !short_name) {
@@ -77,12 +77,12 @@ router.post('/', roleGuard('admin'), (req: Request, res: Response) => {
 
     const specsJson = typeof specs === 'string' ? specs : JSON.stringify(specs || {});
 
-    const result = execute(
+    const result = await execute(
         `INSERT INTO ships (name, short_name, specs, notes) VALUES (?, ?, ?, ?)`,
         [name, short_name, specsJson, notes || null],
     );
 
-    const ship = queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [result.lastInsertRowid]);
+    const ship = await queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [result.lastInsertRowid]);
 
     res.status(201).json({
         ship: {
@@ -96,14 +96,14 @@ router.post('/', roleGuard('admin'), (req: Request, res: Response) => {
  * PUT /api/ships/:id
  * Update ship data (admin only)
  */
-router.put('/:id', roleGuard('admin'), (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+router.put('/:id', roleGuard('admin'), async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID statku' });
         return;
     }
 
-    const existing = queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
+    const existing = await queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
     if (!existing) {
         res.status(404).json({ error: 'Statek nie znaleziony' });
         return;
@@ -118,13 +118,13 @@ router.put('/:id', roleGuard('admin'), (req: Request, res: Response) => {
         : existing.specs;
     const newNotes = notes !== undefined ? notes : existing.notes;
 
-    execute(
+    await execute(
         `UPDATE ships SET name = ?, short_name = ?, specs = ?, notes = ?, updated_at = datetime('now')
          WHERE id = ?`,
         [newName, newShortName, newSpecs, newNotes, id],
     );
 
-    const ship = queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
+    const ship = await queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
 
     res.json({
         ship: {
@@ -138,21 +138,21 @@ router.put('/:id', roleGuard('admin'), (req: Request, res: Response) => {
  * DELETE /api/ships/:id
  * Delete ship (admin only, only if no tasks)
  */
-router.delete('/:id', roleGuard('admin'), (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/:id', roleGuard('admin'), async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID statku' });
         return;
     }
 
-    const existing = queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
+    const existing = await queryOne<ShipRow>('SELECT * FROM ships WHERE id = ?', [id]);
     if (!existing) {
         res.status(404).json({ error: 'Statek nie znaleziony' });
         return;
     }
 
     // Check if ship has assigned tasks
-    const taskCount = queryOne<{ cnt: number }>(
+    const taskCount = await queryOne<{ cnt: number }>(
         'SELECT COUNT(*) as cnt FROM tasks WHERE ship_id = ?', [id],
     );
 
@@ -163,7 +163,7 @@ router.delete('/:id', roleGuard('admin'), (req: Request, res: Response) => {
         return;
     }
 
-    execute('DELETE FROM ships WHERE id = ?', [id]);
+    await execute('DELETE FROM ships WHERE id = ?', [id]);
     res.json({ deleted: true });
 });
 

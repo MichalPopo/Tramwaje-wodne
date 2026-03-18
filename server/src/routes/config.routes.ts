@@ -10,8 +10,8 @@ router.use(authMiddleware);
  * GET /api/config/:key
  * Get config value
  */
-router.get('/:key', (req, res) => {
-    const value = getConfig(req.params.key);
+router.get('/:key', async (req, res) => {
+    const value = await getConfig(req.params.key);
     if (value === undefined) {
         res.status(404).json({ error: 'Klucz nie znaleziony' });
         return;
@@ -23,10 +23,10 @@ router.get('/:key', (req, res) => {
  * PUT /api/config/:key
  * 🔒 Admin only — update config value
  */
-router.put('/:key', roleGuard('admin'), (req, res) => {
+router.put('/:key', roleGuard('admin'), async (req, res) => {
     try {
         const { value } = z.object({ value: z.string().min(1).max(1000) }).parse(req.body);
-        setConfig(req.params.key, value);
+        await setConfig(req.params.key as string, value);
         res.json({ key: req.params.key, value });
     } catch (error) {
         if (error instanceof ZodError) {

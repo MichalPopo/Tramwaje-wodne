@@ -15,11 +15,11 @@ declare global {
  * JWT authentication middleware.
  * Verifies the Bearer token and attaches user to request.
  */
-export function authMiddleware(
+export async function authMiddleware(
     req: Request,
     res: Response,
     next: NextFunction
-): void {
+): Promise<void> {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -36,7 +36,7 @@ export function authMiddleware(
 
     try {
         const payload = verifyToken(token);
-        const user = getUserById(payload.userId);
+        const user = await getUserById(payload.userId);
 
         if (!user) {
             res.status(401).json({ error: 'Użytkownik nie istnieje' });

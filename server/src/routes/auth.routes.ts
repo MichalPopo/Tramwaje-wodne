@@ -89,14 +89,14 @@ router.post('/register', authMiddleware, roleGuard('admin'), async (req, res) =>
  * GET /api/auth/me
  * Authenticated — returns current user data
  */
-router.get('/me', authMiddleware, (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
     if (!req.user) {
         res.status(401).json({ error: 'Brak autoryzacji' });
         return;
     }
 
     // Re-fetch to get latest data
-    const user = getUserById(req.user.id);
+    const user = await getUserById(req.user.id);
     if (!user) {
         res.status(404).json({ error: 'Użytkownik nie znaleziony' });
         return;
@@ -109,8 +109,8 @@ router.get('/me', authMiddleware, (req, res) => {
  * GET /api/auth/users
  * 🔒 Admin only — list all team members
  */
-router.get('/users', authMiddleware, roleGuard('admin'), (_req, res) => {
-    const users = listUsers();
+router.get('/users', authMiddleware, roleGuard('admin'), async (_req, res) => {
+    const users = await listUsers();
     res.json({ users });
 });
 
@@ -118,8 +118,8 @@ router.get('/users', authMiddleware, roleGuard('admin'), (_req, res) => {
  * PATCH /api/auth/users/:id/active
  * 🔒 Admin only — activate/deactivate user
  */
-router.patch('/users/:id/active', authMiddleware, roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.patch('/users/:id/active', authMiddleware, roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID użytkownika' });
         return;
@@ -137,7 +137,7 @@ router.patch('/users/:id/active', authMiddleware, roleGuard('admin'), (req, res)
         return;
     }
 
-    const user = toggleUserActive(id, isActive);
+    const user = await toggleUserActive(id, isActive);
     if (!user) {
         res.status(404).json({ error: 'Użytkownik nie znaleziony' });
         return;
@@ -151,7 +151,7 @@ router.patch('/users/:id/active', authMiddleware, roleGuard('admin'), (req, res)
  * 🔒 Admin or self — change user password
  */
 router.patch('/users/:id/password', authMiddleware, async (req, res) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID użytkownika' });
         return;

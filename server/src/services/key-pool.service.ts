@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { queryAll, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -23,8 +22,8 @@ export interface ApiKeyStatus extends Omit<ApiKeyInfo, 'api_key'> {
 
 // --- Key management (DB-backed) ---
 
-function ensureTable(db?: Database): void {
-    execute(`CREATE TABLE IF NOT EXISTS gemini_api_keys (
+async function ensureTable(): Promise<void> {
+    await execute(`CREATE TABLE IF NOT EXISTS gemini_api_keys (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         api_key         TEXT NOT NULL UNIQUE,
         label           TEXT NOT NULL DEFAULT '',
@@ -34,34 +33,34 @@ function ensureTable(db?: Database): void {
         cooldown_until  TEXT,
         last_used       TEXT,
         created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-    )`, [], db);
+    )`, []);
 }
 
-export function listKeys(db?: Database): ApiKeyStatus[] {
-    ensureTable(db);
-    const rows = queryAll<ApiKeyInfo>('SELECT * FROM gemini_api_keys ORDER BY id', [], db);
+export async function listKeys(): Promise<ApiKeyStatus[]> {
+    await ensureTable();
+    const rows = await queryAll<ApiKeyInfo>('SELECT * FROM gemini_api_keys ORDER BY id', []);
     return rows.map(keyToStatus);
 }
 
-export function addKey(apiKey: string, label: string, db?: Database): ApiKeyStatus {
-    ensureTable(db);
-    const result = execute(
+export async function addKey(apiKey: string, label: string): Promise<ApiKeyStatus> {
+    await ensureTable();
+    const result = await execute(
         'INSERT INTO gemini_api_keys (api_key, label) VALUES (?, ?)',
-        [apiKey.trim(), label || `Klucz #${Date.now()}`], db,
+        [apiKey.trim(), label || `Klucz #${Date.now()}`],
     );
-    const row = queryAll<ApiKeyInfo>('SELECT * FROM gemini_api_keys WHERE id = ?', [result.lastInsertRowid], db)[0];
-    return keyToStatus(row);
+    const rows = await queryAll<ApiKeyInfo>('SELECT * FROM gemini_api_keys WHERE id = ?', [result.lastInsertRowid]);
+    return keyToStatus(rows[0]);
 }
 
-export function removeKey(id: number, db?: Database): boolean {
-    ensureTable(db);
-    const result = execute('DELETE FROM gemini_api_keys WHERE id = ?', [id], db);
+export async function removeKey(id: number): Promise<boolean> {
+    await ensureTable();
+    const result = await execute('DELETE FROM gemini_api_keys WHERE id = ?', [id]);
     return result.changes > 0;
 }
 
-export function toggleKey(id: number, active: boolean, db?: Database): boolean {
-    ensureTable(db);
-    const result = execute('UPDATE gemini_api_keys SET is_active = ? WHERE id = ?', [active ? 1 : 0, id], db);
+export async function toggleKey(id: number, active: boolean): Promise<boolean> {
+    await ensureTable();
+    const result = await execute('UPDATE gemini_api_keys SET is_active = ? WHERE id = ?', [active ? 1 : 0, id]);
     return result.changes > 0;
 }
 
@@ -87,23 +86,23 @@ function keyToStatus(row: ApiKeyInfo): ApiKeyStatus {
 const COOLDOWN_429_MS = 60_000;       // 1 min for rate limit
 const COOLDOWN_QUOTA_MS = 3600_000;   // 1h for daily quota
 
-export function getAvailableGeminiClient(db?: Database): { client: GoogleGenerativeAI; keyId: number } {
-    ensureTable(db);
+export async function getAvailableGeminiClient(): Promise<{ client: GoogleGenerativeAI; keyId: number }> {
+    await ensureTable();
 
     // First: try DB keys
-    const rows = queryAll<ApiKeyInfo>(
+    const rows = await queryAll<ApiKeyInfo>(
         `SELECT * FROM gemini_api_keys
          WHERE is_active = 1
          AND (cooldown_until IS NULL OR cooldown_until < datetime('now'))
          ORDER BY total_requests ASC`,
-        [], db,
+        [],
     );
 
     if (rows.length > 0) {
         const key = rows[0]; // use least-used key
-        execute(
+        await execute(
             "UPDATE gemini_api_keys SET last_used = datetime('now'), total_requests = total_requests + 1 WHERE id = ?",
-            [key.id], db,
+            [key.id],
         );
         return { client: new GoogleGenerativeAI(key.api_key), keyId: key.id };
     }
@@ -120,53 +119,53 @@ export function getAvailableGeminiClient(db?: Database): { client: GoogleGenerat
 /**
  * Get raw API key string (for REST API calls like search grounding).
  */
-export function getAvailableRawKey(db?: Database): { rawKey: string; keyId: number } {
-    const { client, keyId } = getAvailableGeminiClient(db);
+export async function getAvailableRawKey(): Promise<{ rawKey: string; keyId: number }> {
+    const { keyId } = await getAvailableGeminiClient();
     // Extract key: for DB keys, re-read from DB; for env key, use env
     if (keyId < 0) {
         return { rawKey: process.env.GEMINI_API_KEY!, keyId };
     }
-    const row = queryAll<ApiKeyInfo>('SELECT api_key FROM gemini_api_keys WHERE id = ?', [keyId], db)[0];
-    return { rawKey: row.api_key, keyId };
+    const rows = await queryAll<ApiKeyInfo>('SELECT api_key FROM gemini_api_keys WHERE id = ?', [keyId]);
+    return { rawKey: rows[0].api_key, keyId };
 }
 
-export function reportKeyError(keyId: number, statusCode: number, db?: Database): void {
+export async function reportKeyError(keyId: number, statusCode: number): Promise<void> {
     if (keyId < 0) return; // env key, skip
 
-    ensureTable(db);
+    await ensureTable();
 
     if (statusCode === 429) {
         // Rate limit — short cooldown
-        execute(
+        await execute(
             `UPDATE gemini_api_keys
              SET cooldown_until = datetime('now', '+${Math.floor(COOLDOWN_429_MS / 1000)} seconds'),
                  total_errors = total_errors + 1
              WHERE id = ?`,
-            [keyId], db,
+            [keyId],
         );
     } else if (statusCode === 403) {
         // Quota exceeded — long cooldown
-        execute(
+        await execute(
             `UPDATE gemini_api_keys
              SET cooldown_until = datetime('now', '+${Math.floor(COOLDOWN_QUOTA_MS / 1000)} seconds'),
                  total_errors = total_errors + 1
              WHERE id = ?`,
-            [keyId], db,
+            [keyId],
         );
     } else {
         // Other error — just count
-        execute(
+        await execute(
             'UPDATE gemini_api_keys SET total_errors = total_errors + 1 WHERE id = ?',
-            [keyId], db,
+            [keyId],
         );
     }
 }
 
-export function clearCooldown(id: number, db?: Database): boolean {
-    ensureTable(db);
-    const result = execute(
+export async function clearCooldown(id: number): Promise<boolean> {
+    await ensureTable();
+    const result = await execute(
         'UPDATE gemini_api_keys SET cooldown_until = NULL WHERE id = ?',
-        [id], db,
+        [id],
     );
     return result.changes > 0;
 }

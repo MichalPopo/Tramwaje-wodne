@@ -65,7 +65,7 @@ router.put('/:equipmentId', roleGuard('admin'), (req, res) => {
  * Body: { hours: number }
  */
 router.post('/:equipmentId/add', (req, res) => {
-    const equipmentId = parseInt(req.params.equipmentId, 10);
+    const equipmentId = parseInt(req.params.equipmentId as string, 10);
     const { hours } = req.body;
 
     if (typeof hours !== 'number' || hours <= 0) {

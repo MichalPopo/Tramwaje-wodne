@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { initDatabase, closeDatabase, saveDatabase } from './db/database.js';
+import { initDatabase, closeDatabase } from './db/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.routes.js';
 import taskRoutes from './routes/task.routes.js';
@@ -74,24 +74,13 @@ app.use('/api/api-keys', apiKeysRoutes);
 // --- Error handler (must be last) ---
 app.use(errorHandler);
 
-// --- Auto-save database periodically ---
-let saveInterval: ReturnType<typeof setInterval> | null = null;
 let server: Server | null = null;
 
 // --- Server startup ---
 export async function start(): Promise<void> {
     try {
         await initDatabase();
-        console.log('✅ Baza danych zainicjalizowana');
-
-        // Auto-save co 30 sekund
-        saveInterval = setInterval(() => {
-            try {
-                saveDatabase();
-            } catch {
-                console.error('❌ Błąd zapisu bazy danych');
-            }
-        }, 30_000);
+        console.log('✅ Baza danych zainicjalizowana (Turso)');
 
         server = app.listen(PORT, '0.0.0.0', () => {
             console.log(`🚢 Tramwaje Wodne API — port ${PORT}`);
@@ -108,14 +97,13 @@ export async function start(): Promise<void> {
 // --- Graceful shutdown ---
 function shutdown(): void {
     console.log('\n🛑 Zamykanie serwera...');
-    if (saveInterval) clearInterval(saveInterval);
 
     // Close HTTP server first (stop accepting new connections)
     if (server) {
         server.close(() => {
             console.log('✅ HTTP serwer zamknięty');
             closeDatabase();
-            console.log('✅ Baza danych zamknięta');
+            console.log('✅ Połączenie z bazą zamknięte');
             process.exit(0);
         });
 

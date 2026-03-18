@@ -48,7 +48,7 @@ router.post('/', (req, res) => {
  * DELETE /api/api-keys/:id
  */
 router.delete('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
     const deleted = removeKey(id);
     if (!deleted) { res.status(404).json({ error: 'Klucz nie znaleziony' }); return; }
@@ -59,7 +59,7 @@ router.delete('/:id', (req, res) => {
  * PATCH /api/api-keys/:id/toggle
  */
 router.patch('/:id/toggle', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
     const { active } = req.body;
     const updated = toggleKey(id, !!active);
@@ -71,7 +71,7 @@ router.patch('/:id/toggle', (req, res) => {
  * POST /api/api-keys/:id/clear-cooldown
  */
 router.post('/:id/clear-cooldown', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
     const cleared = clearCooldown(id);
     if (!cleared) { res.status(404).json({ error: 'Klucz nie znaleziony' }); return; }

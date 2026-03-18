@@ -21,13 +21,13 @@ const uploadSchema = z.object({
 /**
  * GET /api/tasks/:taskId/attachments
  */
-router.get('/tasks/:taskId/attachments', (req, res) => {
-    const taskId = parseInt(req.params.taskId, 10);
+router.get('/tasks/:taskId/attachments', async (req, res) => {
+    const taskId = parseInt(req.params.taskId as string, 10);
     if (isNaN(taskId) || taskId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
     }
-    const attachments = listAttachments(taskId);
+    const attachments = await listAttachments(taskId);
     res.json({ attachments });
 });
 
@@ -35,14 +35,14 @@ router.get('/tasks/:taskId/attachments', (req, res) => {
  * GET /api/attachments/:id
  * Returns attachment with base64 data
  */
-router.get('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
-    const attachment = getAttachment(id);
+    const attachment = await getAttachment(id);
     if (!attachment) {
         res.status(404).json({ error: 'Załącznik nie znaleziony' });
         return;
@@ -55,8 +55,8 @@ router.get('/:id', (req, res) => {
  * POST /api/tasks/:taskId/attachments
  * Upload attachment (photo/document as base64)
  */
-router.post('/tasks/:taskId/attachments', (req, res) => {
-    const taskId = parseInt(req.params.taskId, 10);
+router.post('/tasks/:taskId/attachments', async (req, res) => {
+    const taskId = parseInt(req.params.taskId as string, 10);
     if (isNaN(taskId) || taskId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
@@ -64,7 +64,7 @@ router.post('/tasks/:taskId/attachments', (req, res) => {
 
     try {
         const data = uploadSchema.parse(req.body);
-        const attachment = createAttachment(taskId, data, req.user!.id);
+        const attachment = await createAttachment(taskId, data, req.user!.id);
         res.status(201).json({ attachment });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -81,15 +81,15 @@ router.post('/tasks/:taskId/attachments', (req, res) => {
 /**
  * DELETE /api/attachments/:id
  */
-router.delete('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
     // Check ownership: only uploader or admin can delete
-    const attachment = getAttachment(id);
+    const attachment = await getAttachment(id);
     if (!attachment) {
         res.status(404).json({ error: 'Załącznik nie znaleziony' });
         return;
@@ -99,7 +99,7 @@ router.delete('/:id', (req, res) => {
         return;
     }
 
-    deleteAttachment(id);
+    await deleteAttachment(id);
     res.status(204).send();
 });
 
@@ -107,8 +107,8 @@ router.delete('/:id', (req, res) => {
  * PATCH /api/attachments/:id/tag
  * Update attachment tag (before/after/progress/null)
  */
-router.patch('/:id/tag', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.patch('/:id/tag', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
@@ -118,7 +118,7 @@ router.patch('/:id/tag', (req, res) => {
         res.status(400).json({ error: 'Tag musi być: before, after, progress lub null' });
         return;
     }
-    const updated = updateAttachmentTag(id, tag);
+    const updated = await updateAttachmentTag(id, tag);
     if (!updated) {
         res.status(404).json({ error: 'Załącznik nie znaleziony' });
         return;
@@ -130,13 +130,13 @@ router.patch('/:id/tag', (req, res) => {
  * GET /api/attachments/timeline/:shipId
  * Get photo timeline for a ship
  */
-router.get('/timeline/:shipId', (req, res) => {
-    const shipId = parseInt(req.params.shipId, 10);
+router.get('/timeline/:shipId', async (req, res) => {
+    const shipId = parseInt(req.params.shipId as string, 10);
     if (isNaN(shipId) || shipId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID statku' });
         return;
     }
-    const photos = getShipPhotoTimeline(shipId);
+    const photos = await getShipPhotoTimeline(shipId);
     // Strip base64 data from timeline response (send metadata only)
     const timeline = photos.map(({ filename, ...rest }) => rest);
     res.json({ timeline });
@@ -146,13 +146,13 @@ router.get('/timeline/:shipId', (req, res) => {
  * GET /api/attachments/tasks/:taskId/before-after
  * Get before/after photo pairs for a task
  */
-router.get('/tasks/:taskId/before-after', (req, res) => {
-    const taskId = parseInt(req.params.taskId, 10);
+router.get('/tasks/:taskId/before-after', async (req, res) => {
+    const taskId = parseInt(req.params.taskId as string, 10);
     if (isNaN(taskId) || taskId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
     }
-    const pairs = getBeforeAfterPairs(taskId);
+    const pairs = await getBeforeAfterPairs(taskId);
     // Strip base64 from response
     const strip = (list: typeof pairs.before) => list.map(({ filename, ...rest }) => rest);
     res.json({

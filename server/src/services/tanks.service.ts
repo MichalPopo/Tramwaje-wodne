@@ -1,5 +1,4 @@
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -72,7 +71,7 @@ function enrichTank(row: {
 
 // --- CRUD ---
 
-export function listTanks(filters?: { ship_id?: number; type?: string }, db?: Database): Tank[] {
+export async function listTanks(filters?: { ship_id?: number; type?: string }): Promise<Tank[]> {
     let sql = `
         SELECT t.id, t.ship_id, t.type, t.name, t.capacity, t.current_level,
                t.alert_threshold, t.unit, t.updated_at,
@@ -94,17 +93,17 @@ export function listTanks(filters?: { ship_id?: number; type?: string }, db?: Da
     if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY s.name, t.type, t.name';
 
-    const rows = queryAll<{
+    const rows = await queryAll<{
         id: number; ship_id: number; ship_name: string; type: string;
         name: string; capacity: number; current_level: number;
         alert_threshold: number; unit: string; updated_at: string;
-    }>(sql, params, db);
+    }>(sql, params);
 
     return rows.map(enrichTank);
 }
 
-export function getTank(id: number, db?: Database): Tank | undefined {
-    const row = queryOne<{
+export async function getTank(id: number): Promise<Tank | undefined> {
+    const row = await queryOne<{
         id: number; ship_id: number; ship_name: string; type: string;
         name: string; capacity: number; current_level: number;
         alert_threshold: number; unit: string; updated_at: string;
@@ -112,12 +111,12 @@ export function getTank(id: number, db?: Database): Tank | undefined {
         `SELECT t.*, s.name as ship_name FROM tanks t
          JOIN ships s ON s.id = t.ship_id
          WHERE t.id = ?`,
-        [id], db,
+        [id],
     );
     return row ? enrichTank(row) : undefined;
 }
 
-export function createTank(
+export async function createTank(
     data: {
         ship_id: number;
         type: string;
@@ -127,29 +126,26 @@ export function createTank(
         alert_threshold?: number;
         unit?: string;
     },
-    db?: Database,
-): Tank | undefined {
+): Promise<Tank | undefined> {
     // Verify ship exists
-    const ship = queryOne<{ id: number }>('SELECT id FROM ships WHERE id = ?', [data.ship_id], db);
+    const ship = await queryOne<{ id: number }>('SELECT id FROM ships WHERE id = ?', [data.ship_id]);
     if (!ship) return undefined;
 
-    const result = execute(
+    const result = await execute(
         `INSERT INTO tanks (ship_id, type, name, capacity, current_level, alert_threshold, unit)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [data.ship_id, data.type, data.name, data.capacity,
          data.current_level ?? 0, data.alert_threshold ?? 20, data.unit ?? 'L'],
-        db,
     );
 
-    return getTank(result.lastInsertRowid, db);
+    return getTank(result.lastInsertRowid);
 }
 
-export function updateTank(
+export async function updateTank(
     id: number,
     data: Partial<{ name: string; capacity: number; current_level: number; alert_threshold: number; unit: string }>,
-    db?: Database,
-): Tank | undefined {
-    const existing = queryOne<{ id: number }>('SELECT id FROM tanks WHERE id = ?', [id], db);
+): Promise<Tank | undefined> {
+    const existing = await queryOne<{ id: number }>('SELECT id FROM tanks WHERE id = ?', [id]);
     if (!existing) return undefined;
 
     const fields: string[] = [];
@@ -161,17 +157,17 @@ export function updateTank(
     if (data.alert_threshold !== undefined) { fields.push('alert_threshold = ?'); params.push(data.alert_threshold); }
     if (data.unit !== undefined) { fields.push('unit = ?'); params.push(data.unit); }
 
-    if (fields.length === 0) return getTank(id, db);
+    if (fields.length === 0) return getTank(id);
 
     params.push(id);
-    execute(`UPDATE tanks SET ${fields.join(', ')} WHERE id = ?`, params, db);
+    await execute(`UPDATE tanks SET ${fields.join(', ')} WHERE id = ?`, params);
 
-    return getTank(id, db);
+    return getTank(id);
 }
 
 // --- Log level changes ---
 
-export function logTankChange(
+export async function logTankChange(
     data: {
         tank_id: number;
         change_amount: number;
@@ -180,11 +176,10 @@ export function logTankChange(
         notes?: string;
         logged_by?: number;
     },
-    db?: Database,
-): TankLog | undefined {
-    const tank = queryOne<{ id: number; current_level: number; capacity: number }>(
+): Promise<TankLog | undefined> {
+    const tank = await queryOne<{ id: number; current_level: number; capacity: number }>(
         'SELECT id, current_level, capacity FROM tanks WHERE id = ?',
-        [data.tank_id], db,
+        [data.tank_id],
     );
     if (!tank) return undefined;
 
@@ -192,29 +187,28 @@ export function logTankChange(
     const newLevel = Math.max(0, Math.min(tank.capacity, tank.current_level + data.change_amount));
 
     // Update tank level
-    execute('UPDATE tanks SET current_level = ? WHERE id = ?', [newLevel, data.tank_id], db);
+    await execute('UPDATE tanks SET current_level = ? WHERE id = ?', [newLevel, data.tank_id]);
 
     // Create log entry
-    const result = execute(
+    const result = await execute(
         `INSERT INTO tank_logs (tank_id, change_amount, level_after, log_type, route_info, notes, logged_by)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [data.tank_id, data.change_amount, newLevel, data.log_type,
          data.route_info ?? null, data.notes ?? null, data.logged_by ?? null],
-        db,
     );
 
-    return queryOne<TankLog>(
+    return await queryOne<TankLog>(
         `SELECT tl.*, t.name as tank_name, u.name as logger_name
          FROM tank_logs tl
          JOIN tanks t ON t.id = tl.tank_id
          LEFT JOIN users u ON u.id = tl.logged_by
          WHERE tl.id = ?`,
-        [result.lastInsertRowid], db,
+        [result.lastInsertRowid],
     ) ?? undefined;
 }
 
-export function getTankLogs(tankId: number, limit: number = 50, db?: Database): TankLog[] {
-    return queryAll<TankLog>(
+export async function getTankLogs(tankId: number, limit: number = 50): Promise<TankLog[]> {
+    return await queryAll<TankLog>(
         `SELECT tl.*, t.name as tank_name, u.name as logger_name
          FROM tank_logs tl
          JOIN tanks t ON t.id = tl.tank_id
@@ -222,14 +216,14 @@ export function getTankLogs(tankId: number, limit: number = 50, db?: Database): 
          WHERE tl.tank_id = ?
          ORDER BY tl.created_at DESC
          LIMIT ?`,
-        [tankId, limit], db,
+        [tankId, limit],
     );
 }
 
 // --- Alerts ---
 
-export function getTankAlerts(db?: Database): TankAlert[] {
-    const tanks = listTanks(undefined, db);
+export async function getTankAlerts(): Promise<TankAlert[]> {
+    const tanks = await listTanks(undefined);
     const alerts: TankAlert[] = [];
 
     for (const tank of tanks) {
@@ -265,14 +259,13 @@ export function getTankAlerts(db?: Database): TankAlert[] {
 
 // --- Consumption stats ---
 
-export function getConsumptionStats(
+export async function getConsumptionStats(
     tankId: number,
-    db?: Database,
-): { total_consumed: number; avg_per_trip: number; trips_count: number } {
-    const consumptions = queryAll<{ change_amount: number; route_info: string | null }>(
+): Promise<{ total_consumed: number; avg_per_trip: number; trips_count: number }> {
+    const consumptions = await queryAll<{ change_amount: number; route_info: string | null }>(
         `SELECT change_amount, route_info FROM tank_logs
          WHERE tank_id = ? AND log_type = 'consumption'`,
-        [tankId], db,
+        [tankId],
     );
 
     const total = consumptions.reduce((sum, c) => sum + Math.abs(c.change_amount), 0);
@@ -288,9 +281,9 @@ export function getConsumptionStats(
 
 // --- AI Context ---
 
-export function getTanksForAI(db?: Database): string {
-    const tanks = listTanks(undefined, db);
-    const alerts = getTankAlerts(db);
+export async function getTanksForAI(): Promise<string> {
+    const tanks = await listTanks(undefined);
+    const alerts = await getTankAlerts();
 
     if (tanks.length === 0) {
         return '\n## Zbiorniki\n- Brak zarejestrowanych zbiorników.';

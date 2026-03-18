@@ -46,14 +46,14 @@ const addMaterialSchema = z.object({
  * GET /api/inventory
  * List all inventory items with optional filters
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const filters: Record<string, unknown> = {};
     if (req.query.category) filters.category = req.query.category;
     if (req.query.ship_id) filters.ship_id = parseInt(req.query.ship_id as string, 10);
     if (req.query.search) filters.search = req.query.search;
     if (req.query.low_stock === 'true') filters.low_stock = true;
 
-    const items = listItems(filters as any);
+    const items = await listItems(filters as any);
     res.json({ items });
 });
 
@@ -61,8 +61,8 @@ router.get('/', (req, res) => {
  * GET /api/inventory/low-stock
  * Get items below minimum quantity
  */
-router.get('/low-stock', (_req, res) => {
-    const items = listItems({ low_stock: true });
+router.get('/low-stock', async (_req, res) => {
+    const items = await listItems({ low_stock: true });
     res.json({ items });
 });
 
@@ -70,22 +70,22 @@ router.get('/low-stock', (_req, res) => {
  * GET /api/inventory/shopping-list
  * 🔒 Admin only — aggregated shopping list from task materials
  */
-router.get('/shopping-list', roleGuard('admin'), (_req, res) => {
-    const list = getShoppingList();
+router.get('/shopping-list', roleGuard('admin'), async (_req, res) => {
+    const list = await getShoppingList();
     res.json({ items: list });
 });
 
 /**
  * GET /api/inventory/:id
  */
-router.get('/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
-    const item = getItem(id);
+    const item = await getItem(id);
     if (!item) {
         res.status(404).json({ error: 'Pozycja nie znaleziona' });
         return;
@@ -98,10 +98,10 @@ router.get('/:id', (req, res) => {
  * POST /api/inventory
  * 🔒 Admin only — add new inventory item
  */
-router.post('/', roleGuard('admin'), (req, res) => {
+router.post('/', roleGuard('admin'), async (req, res) => {
     try {
         const data = createItemSchema.parse(req.body);
-        const item = createItem(data);
+        const item = await createItem(data);
         res.status(201).json({ item });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -119,8 +119,8 @@ router.post('/', roleGuard('admin'), (req, res) => {
  * PUT /api/inventory/:id
  * 🔒 Admin only — update inventory item
  */
-router.put('/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.put('/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
@@ -128,7 +128,7 @@ router.put('/:id', roleGuard('admin'), (req, res) => {
 
     try {
         const data = updateItemSchema.parse(req.body);
-        const item = updateItem(id, data);
+        const item = await updateItem(id, data);
         if (!item) {
             res.status(404).json({ error: 'Pozycja nie znaleziona' });
             return;
@@ -150,14 +150,14 @@ router.put('/:id', roleGuard('admin'), (req, res) => {
  * DELETE /api/inventory/:id
  * 🔒 Admin only
  */
-router.delete('/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
-    const deleted = deleteItem(id);
+    const deleted = await deleteItem(id);
     if (!deleted) {
         res.status(404).json({ error: 'Pozycja nie znaleziona' });
         return;
@@ -170,8 +170,8 @@ router.delete('/:id', roleGuard('admin'), (req, res) => {
  * PATCH /api/inventory/:id/quantity
  * Adjust quantity (+ or -). Workers can report usage.
  */
-router.patch('/:id/quantity', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.patch('/:id/quantity', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
@@ -202,14 +202,14 @@ router.patch('/:id/quantity', (req, res) => {
 /**
  * GET /api/inventory/tasks/:taskId/materials
  */
-router.get('/tasks/:taskId/materials', (req, res) => {
-    const taskId = parseInt(req.params.taskId, 10);
+router.get('/tasks/:taskId/materials', async (req, res) => {
+    const taskId = parseInt(req.params.taskId as string, 10);
     if (isNaN(taskId) || taskId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
     }
 
-    const materials = getTaskMaterials(taskId);
+    const materials = await getTaskMaterials(taskId);
     res.json({ materials });
 });
 
@@ -217,8 +217,8 @@ router.get('/tasks/:taskId/materials', (req, res) => {
  * POST /api/inventory/tasks/:taskId/materials
  * 🔒 Admin only
  */
-router.post('/tasks/:taskId/materials', roleGuard('admin'), (req, res) => {
-    const taskId = parseInt(req.params.taskId, 10);
+router.post('/tasks/:taskId/materials', roleGuard('admin'), async (req, res) => {
+    const taskId = parseInt(req.params.taskId as string, 10);
     if (isNaN(taskId) || taskId <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID zadania' });
         return;
@@ -226,7 +226,7 @@ router.post('/tasks/:taskId/materials', roleGuard('admin'), (req, res) => {
 
     try {
         const data = addMaterialSchema.parse(req.body);
-        const material = addTaskMaterial(taskId, data);
+        const material = await addTaskMaterial(taskId, data);
         res.status(201).json({ material });
     } catch (error) {
         if (error instanceof ZodError) {
@@ -244,8 +244,8 @@ router.post('/tasks/:taskId/materials', roleGuard('admin'), (req, res) => {
  * PATCH /api/inventory/materials/:id/purchased
  * Toggle purchased status
  */
-router.patch('/materials/:id/purchased', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.patch('/materials/:id/purchased', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
@@ -257,7 +257,7 @@ router.patch('/materials/:id/purchased', (req, res) => {
         return;
     }
 
-    const updated = toggleMaterialPurchased(id, purchased);
+    const updated = await toggleMaterialPurchased(id, purchased);
     if (!updated) {
         res.status(404).json({ error: 'Materiał nie znaleziony' });
         return;
@@ -270,14 +270,14 @@ router.patch('/materials/:id/purchased', (req, res) => {
  * DELETE /api/inventory/materials/:id
  * 🔒 Admin only
  */
-router.delete('/materials/:id', roleGuard('admin'), (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.delete('/materials/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id) || id <= 0) {
         res.status(400).json({ error: 'Nieprawidłowe ID' });
         return;
     }
 
-    const deleted = removeTaskMaterial(id);
+    const deleted = await removeTaskMaterial(id);
     if (!deleted) {
         res.status(404).json({ error: 'Materiał nie znaleziony' });
         return;

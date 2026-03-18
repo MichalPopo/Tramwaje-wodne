@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 const BCRYPT_ROUNDS = 12;
 // Dummy hash for timing-safe comparison when user doesn't exist
@@ -88,25 +87,21 @@ export function verifyToken(token: string): JwtPayload {
     return jwt.verify(token, getJwtSecret()) as JwtPayload;
 }
 
-export function findUserByEmail(
+export async function findUserByEmail(
     email: string,
-    database?: Database
-): UserRow | undefined {
+): Promise<UserRow | undefined> {
     return queryOne<UserRow>(
         'SELECT * FROM users WHERE email = ?',
         [email.toLowerCase().trim()],
-        database
     );
 }
 
-export function findUserById(
+export async function findUserById(
     id: number,
-    database?: Database
-): UserRow | undefined {
+): Promise<UserRow | undefined> {
     return queryOne<UserRow>(
         'SELECT * FROM users WHERE id = ?',
         [id],
-        database
     );
 }
 
@@ -115,25 +110,23 @@ export async function registerUser(
     password: string,
     name: string,
     role: string,
-    database?: Database
 ): Promise<SafeUser> {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check for duplicate email
-    const existing = findUserByEmail(normalizedEmail, database);
+    const existing = await findUserByEmail(normalizedEmail);
     if (existing) {
         throw new Error('DUPLICATE_EMAIL');
     }
 
     const hashedPassword = await hashPassword(password);
 
-    const result = execute(
+    const result = await execute(
         'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
         [normalizedEmail, hashedPassword, name.trim(), role],
-        database
     );
 
-    const user = findUserById(result.lastInsertRowid, database);
+    const user = await findUserById(result.lastInsertRowid);
     if (!user) {
         throw new Error('Failed to create user');
     }
@@ -144,9 +137,8 @@ export async function registerUser(
 export async function loginUser(
     email: string,
     password: string,
-    database?: Database
 ): Promise<{ token: string; user: SafeUser }> {
-    const user = findUserByEmail(email, database);
+    const user = await findUserByEmail(email);
 
     // Timing-safe: always run bcrypt even if user doesn't exist
     const hashToCompare = user ? user.password : DUMMY_HASH;
@@ -170,39 +162,34 @@ export async function loginUser(
     return { token, user: toSafeUser(user) };
 }
 
-export function getUserById(
+export async function getUserById(
     id: number,
-    database?: Database
-): SafeUser | undefined {
-    const user = findUserById(id, database);
+): Promise<SafeUser | undefined> {
+    const user = await findUserById(id);
     if (!user) return undefined;
     return toSafeUser(user);
 }
 
-export function listUsers(database?: Database): SafeUser[] {
-    const rows = queryAll<UserRow>(
+export async function listUsers(): Promise<SafeUser[]> {
+    const rows = await queryAll<UserRow>(
         'SELECT * FROM users ORDER BY id',
-        [],
-        database,
     );
     return rows.map(toSafeUser);
 }
 
-export function toggleUserActive(
+export async function toggleUserActive(
     id: number,
     isActive: boolean,
-    database?: Database,
-): SafeUser | undefined {
-    const user = findUserById(id, database);
+): Promise<SafeUser | undefined> {
+    const user = await findUserById(id);
     if (!user) return undefined;
 
-    execute(
+    await execute(
         'UPDATE users SET is_active = ? WHERE id = ?',
         [isActive ? 1 : 0, id],
-        database,
     );
 
-    return getUserById(id, database);
+    return getUserById(id);
 }
 
 /**
@@ -215,9 +202,8 @@ export async function changePassword(
     newPassword: string,
     requestingUser: { id: number; role: string },
     oldPassword?: string,
-    database?: Database
 ): Promise<boolean> {
-    const user = findUserById(targetUserId, database);
+    const user = await findUserById(targetUserId);
     if (!user) return false;
 
     // Non-admin changing their own password must provide old password
@@ -229,7 +215,7 @@ export async function changePassword(
     }
 
     const hashed = await hashPassword(newPassword);
-    execute('UPDATE users SET password = ? WHERE id = ?', [hashed, targetUserId], database);
+    await execute('UPDATE users SET password = ? WHERE id = ?', [hashed, targetUserId]);
     return true;
 }
 

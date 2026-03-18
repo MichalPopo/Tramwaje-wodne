@@ -15,37 +15,37 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/budget/summary — season summary
-router.get('/summary', (_req, res) => {
-    const summary = getSeasonSummary();
+router.get('/summary', async (_req, res) => {
+    const summary = await getSeasonSummary();
     res.json(summary);
 });
 
 // GET /api/budget/by-ship — costs per ship
-router.get('/by-ship', (_req, res) => {
-    const costs = getShipCosts();
+router.get('/by-ship', async (_req, res) => {
+    const costs = await getShipCosts();
     res.json({ costs });
 });
 
 // GET /api/budget/by-category — costs per category
-router.get('/by-category', (_req, res) => {
-    const costs = getCategoryCosts();
+router.get('/by-category', async (_req, res) => {
+    const costs = await getCategoryCosts();
     res.json({ costs });
 });
 
 // GET /api/budget/monthly — monthly trend
-router.get('/monthly', (_req, res) => {
-    const trend = getMonthlyTrend();
+router.get('/monthly', async (_req, res) => {
+    const trend = await getMonthlyTrend();
     res.json({ trend });
 });
 
 // GET /api/budget/tasks/:id — costs for specific task
-router.get('/tasks/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.get('/tasks/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
         res.status(400).json({ error: 'Invalid task ID' });
         return;
     }
-    const cost = getTaskCosts(id);
+    const cost = await getTaskCosts(id);
     if (!cost) {
         res.status(404).json({ error: 'Task not found' });
         return;
@@ -54,7 +54,7 @@ router.get('/tasks/:id', (req, res) => {
 });
 
 // PUT /api/budget/config — update budget settings (admin only)
-router.put('/config', roleGuard('admin'), (req, res) => {
+router.put('/config', roleGuard('admin'), async (req, res) => {
     const { season_budget, hourly_rate } = req.body as { season_budget?: number; hourly_rate?: number };
 
     if (season_budget != null) {
@@ -62,11 +62,11 @@ router.put('/config', roleGuard('admin'), (req, res) => {
             res.status(400).json({ error: 'season_budget must be a non-negative number' });
             return;
         }
-        const existing = queryOne<{ key: string }>('SELECT key FROM config WHERE key = ?', ['season_budget']);
+        const existing = await queryOne<{ key: string }>('SELECT key FROM config WHERE key = ?', ['season_budget']);
         if (existing) {
-            execute('UPDATE config SET value = ? WHERE key = ?', [String(season_budget), 'season_budget']);
+            await execute('UPDATE config SET value = ? WHERE key = ?', [String(season_budget), 'season_budget']);
         } else {
-            execute('INSERT INTO config (key, value) VALUES (?, ?)', ['season_budget', String(season_budget)]);
+            await execute('INSERT INTO config (key, value) VALUES (?, ?)', ['season_budget', String(season_budget)]);
         }
     }
 
@@ -75,21 +75,21 @@ router.put('/config', roleGuard('admin'), (req, res) => {
             res.status(400).json({ error: 'hourly_rate must be a non-negative number' });
             return;
         }
-        const existing = queryOne<{ key: string }>('SELECT key FROM config WHERE key = ?', ['hourly_rate']);
+        const existing = await queryOne<{ key: string }>('SELECT key FROM config WHERE key = ?', ['hourly_rate']);
         if (existing) {
-            execute('UPDATE config SET value = ? WHERE key = ?', [String(hourly_rate), 'hourly_rate']);
+            await execute('UPDATE config SET value = ? WHERE key = ?', [String(hourly_rate), 'hourly_rate']);
         } else {
-            execute('INSERT INTO config (key, value) VALUES (?, ?)', ['hourly_rate', String(hourly_rate)]);
+            await execute('INSERT INTO config (key, value) VALUES (?, ?)', ['hourly_rate', String(hourly_rate)]);
         }
     }
 
-    const summary = getSeasonSummary();
+    const summary = await getSeasonSummary();
     res.json(summary);
 });
 
 // PATCH /api/budget/materials/:id — update actual purchase price
-router.patch('/materials/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10);
+router.patch('/materials/:id', async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
         res.status(400).json({ error: 'Invalid material ID' });
         return;
@@ -99,7 +99,7 @@ router.patch('/materials/:id', (req, res) => {
         res.status(400).json({ error: 'actual_unit_price must be a non-negative number or null' });
         return;
     }
-    execute(
+    await execute(
         'UPDATE task_materials SET actual_unit_price = ? WHERE id = ?',
         [actual_unit_price, id]
     );

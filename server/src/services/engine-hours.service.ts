@@ -1,5 +1,4 @@
 import { queryAll, queryOne, execute } from '../db/database.js';
-import type { Database } from 'sql.js';
 
 // --- Types ---
 
@@ -52,8 +51,8 @@ export interface ServiceAlert {
 
 // --- Engine Hours CRUD ---
 
-export function listEngineHours(db?: Database): EngineHoursEntry[] {
-    return queryAll<EngineHoursEntry>(
+export async function listEngineHours(): Promise<EngineHoursEntry[]> {
+    return await queryAll<EngineHoursEntry>(
         `SELECT eh.id, eh.equipment_id, eh.current_hours, eh.last_updated,
                 e.name as equipment_name, e.type as equipment_type,
                 s.name as ship_name
@@ -61,12 +60,12 @@ export function listEngineHours(db?: Database): EngineHoursEntry[] {
          JOIN equipment e ON e.id = eh.equipment_id
          LEFT JOIN ships s ON s.id = e.ship_id
          ORDER BY s.name, e.name`,
-        [], db,
+        [],
     );
 }
 
-export function getEngineHours(equipmentId: number, db?: Database): EngineHoursEntry | undefined {
-    return queryOne<EngineHoursEntry>(
+export async function getEngineHours(equipmentId: number): Promise<EngineHoursEntry | undefined> {
+    return await queryOne<EngineHoursEntry>(
         `SELECT eh.id, eh.equipment_id, eh.current_hours, eh.last_updated,
                 e.name as equipment_name, e.type as equipment_type,
                 s.name as ship_name
@@ -74,60 +73,57 @@ export function getEngineHours(equipmentId: number, db?: Database): EngineHoursE
          JOIN equipment e ON e.id = eh.equipment_id
          LEFT JOIN ships s ON s.id = e.ship_id
          WHERE eh.equipment_id = ?`,
-        [equipmentId], db,
+        [equipmentId],
     ) ?? undefined;
 }
 
-export function createEngineHours(
+export async function createEngineHours(
     equipmentId: number,
     initialHours: number = 0,
-    db?: Database,
-): EngineHoursEntry | undefined {
+): Promise<EngineHoursEntry | undefined> {
     // Verify equipment exists
-    const eq = queryOne<{ id: number }>('SELECT id FROM equipment WHERE id = ?', [equipmentId], db);
+    const eq = await queryOne<{ id: number }>('SELECT id FROM equipment WHERE id = ?', [equipmentId]);
     if (!eq) return undefined;
 
     // Check if already exists
-    const existing = queryOne<{ id: number }>('SELECT id FROM engine_hours WHERE equipment_id = ?', [equipmentId], db);
-    if (existing) return getEngineHours(equipmentId, db);
+    const existing = await queryOne<{ id: number }>('SELECT id FROM engine_hours WHERE equipment_id = ?', [equipmentId]);
+    if (existing) return getEngineHours(equipmentId);
 
-    execute(
+    await execute(
         'INSERT INTO engine_hours (equipment_id, current_hours) VALUES (?, ?)',
-        [equipmentId, initialHours], db,
+        [equipmentId, initialHours],
     );
-    return getEngineHours(equipmentId, db);
+    return getEngineHours(equipmentId);
 }
 
-export function updateHours(
+export async function updateHours(
     equipmentId: number,
     newHours: number,
-    db?: Database,
-): EngineHoursEntry | undefined {
-    const existing = queryOne<{ id: number }>('SELECT id FROM engine_hours WHERE equipment_id = ?', [equipmentId], db);
+): Promise<EngineHoursEntry | undefined> {
+    const existing = await queryOne<{ id: number }>('SELECT id FROM engine_hours WHERE equipment_id = ?', [equipmentId]);
     if (!existing) return undefined;
 
-    execute(
+    await execute(
         'UPDATE engine_hours SET current_hours = ?, last_updated = datetime(\'now\') WHERE equipment_id = ?',
-        [newHours, equipmentId], db,
+        [newHours, equipmentId],
     );
-    return getEngineHours(equipmentId, db);
+    return getEngineHours(equipmentId);
 }
 
-export function addHours(
+export async function addHours(
     equipmentId: number,
     hoursToAdd: number,
-    db?: Database,
-): EngineHoursEntry | undefined {
-    const existing = queryOne<{ current_hours: number }>('SELECT current_hours FROM engine_hours WHERE equipment_id = ?', [equipmentId], db);
+): Promise<EngineHoursEntry | undefined> {
+    const existing = await queryOne<{ current_hours: number }>('SELECT current_hours FROM engine_hours WHERE equipment_id = ?', [equipmentId]);
     if (!existing) return undefined;
 
     const newHours = existing.current_hours + hoursToAdd;
-    return updateHours(equipmentId, newHours, db);
+    return updateHours(equipmentId, newHours);
 }
 
 // --- Service Intervals CRUD ---
 
-export function listServiceIntervals(equipmentId?: number, db?: Database): ServiceInterval[] {
+export async function listServiceIntervals(equipmentId?: number): Promise<ServiceInterval[]> {
     let sql = `
         SELECT si.id, si.equipment_id, si.name, si.interval_hours,
                si.last_service_hours, si.last_service_date, si.notes,
@@ -147,12 +143,12 @@ export function listServiceIntervals(equipmentId?: number, db?: Database): Servi
 
     sql += ' ORDER BY e.name, si.name';
 
-    const rows = queryAll<{
+    const rows = await queryAll<{
         id: number; equipment_id: number; name: string;
         interval_hours: number; last_service_hours: number;
         last_service_date: string | null; notes: string | null;
         equipment_name: string; current_hours: number;
-    }>(sql, params, db);
+    }>(sql, params);
 
     return rows.map(row => {
         const hoursSinceService = row.current_hours - row.last_service_hours;
@@ -174,7 +170,7 @@ export function listServiceIntervals(equipmentId?: number, db?: Database): Servi
     });
 }
 
-export function createServiceInterval(
+export async function createServiceInterval(
     data: {
         equipment_id: number;
         name: string;
@@ -183,59 +179,55 @@ export function createServiceInterval(
         last_service_date?: string;
         notes?: string;
     },
-    db?: Database,
-): ServiceInterval | undefined {
-    const eq = queryOne<{ id: number }>('SELECT id FROM equipment WHERE id = ?', [data.equipment_id], db);
+): Promise<ServiceInterval | undefined> {
+    const eq = await queryOne<{ id: number }>('SELECT id FROM equipment WHERE id = ?', [data.equipment_id]);
     if (!eq) return undefined;
 
-    const result = execute(
+    const result = await execute(
         `INSERT INTO service_intervals (equipment_id, name, interval_hours, last_service_hours, last_service_date, notes)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [data.equipment_id, data.name, data.interval_hours,
          data.last_service_hours ?? 0, data.last_service_date ?? null, data.notes ?? null],
-        db,
     );
 
-    const intervals = listServiceIntervals(data.equipment_id, db);
-    return intervals.find(i => i.id === result.lastInsertRowid);
+    const intervals = await listServiceIntervals(data.equipment_id);
+    return intervals.find((i: ServiceInterval) => i.id === result.lastInsertRowid);
 }
 
 // --- Service Logs ---
 
-export function logService(
+export async function logService(
     data: {
         interval_id: number;
         notes?: string;
         performed_by?: number;
     },
-    db?: Database,
-): ServiceLog | undefined {
+): Promise<ServiceLog | undefined> {
     // Get interval info
-    const interval = queryOne<{
+    const interval = await queryOne<{
         id: number; equipment_id: number; name: string;
-    }>('SELECT id, equipment_id, name FROM service_intervals WHERE id = ?', [data.interval_id], db);
+    }>('SELECT id, equipment_id, name FROM service_intervals WHERE id = ?', [data.interval_id]);
     if (!interval) return undefined;
 
     // Get current engine hours for this equipment
-    const eh = queryOne<{ current_hours: number }>('SELECT current_hours FROM engine_hours WHERE equipment_id = ?', [interval.equipment_id], db);
+    const eh = await queryOne<{ current_hours: number }>('SELECT current_hours FROM engine_hours WHERE equipment_id = ?', [interval.equipment_id]);
     const currentHours = eh?.current_hours ?? 0;
 
     // Create log
-    const result = execute(
+    const result = await execute(
         `INSERT INTO service_logs (interval_id, equipment_id, hours_at_service, performed_by, notes)
          VALUES (?, ?, ?, ?, ?)`,
         [data.interval_id, interval.equipment_id, currentHours, data.performed_by ?? null, data.notes ?? null],
-        db,
     );
 
     // Update interval's last_service info
-    execute(
+    await execute(
         `UPDATE service_intervals SET last_service_hours = ?, last_service_date = datetime('now')
          WHERE id = ?`,
-        [currentHours, data.interval_id], db,
+        [currentHours, data.interval_id],
     );
 
-    return queryOne<ServiceLog>(
+    return await queryOne<ServiceLog>(
         `SELECT sl.id, sl.interval_id, sl.equipment_id, sl.hours_at_service,
                 sl.performed_by, sl.notes, sl.created_at,
                 si.name as interval_name,
@@ -246,11 +238,11 @@ export function logService(
          JOIN equipment e ON e.id = sl.equipment_id
          LEFT JOIN users u ON u.id = sl.performed_by
          WHERE sl.id = ?`,
-        [result.lastInsertRowid], db,
+        [result.lastInsertRowid],
     ) ?? undefined;
 }
 
-export function getServiceLogs(equipmentId?: number, limit: number = 50, db?: Database): ServiceLog[] {
+export async function getServiceLogs(equipmentId?: number, limit: number = 50): Promise<ServiceLog[]> {
     let sql = `
         SELECT sl.id, sl.interval_id, sl.equipment_id, sl.hours_at_service,
                sl.performed_by, sl.notes, sl.created_at,
@@ -271,13 +263,13 @@ export function getServiceLogs(equipmentId?: number, limit: number = 50, db?: Da
     sql += ' ORDER BY sl.created_at DESC LIMIT ?';
     params.push(limit);
 
-    return queryAll<ServiceLog>(sql, params, db);
+    return await queryAll<ServiceLog>(sql, params);
 }
 
 // --- Service Alerts ---
 
-export function getServiceAlerts(db?: Database): ServiceAlert[] {
-    const intervals = listServiceIntervals(undefined, db);
+export async function getServiceAlerts(): Promise<ServiceAlert[]> {
+    const intervals = await listServiceIntervals(undefined);
     const alerts: ServiceAlert[] = [];
 
     for (const interval of intervals) {
@@ -314,9 +306,9 @@ export function getServiceAlerts(db?: Database): ServiceAlert[] {
 
 // --- AI Context ---
 
-export function getEngineHoursForAI(db?: Database): string {
-    const hours = listEngineHours(db);
-    const alerts = getServiceAlerts(db);
+export async function getEngineHoursForAI(): Promise<string> {
+    const hours = await listEngineHours();
+    const alerts = await getServiceAlerts();
 
     if (hours.length === 0) {
         return '\n## Motogodziny\n- Brak zarejestrowanych liczników.';
