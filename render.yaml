@@ -16,9 +16,3 @@ services:
         value: https://michalpopo.github.io
       - key: JWT_SECRET
         generateValue: true
-      - key: TURSO_DATABASE_URL
-        sync: false
-      - key: TURSO_AUTH_TOKEN
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
