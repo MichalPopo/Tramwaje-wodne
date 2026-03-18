@@ -1,0 +1,28 @@
+# Caddyfile — Reverse Proxy + Auto-SSL
+# Caddy automatycznie pobiera certyfikat Let's Encrypt
+
+# Zmień na swoją domenę
+tramwajewodne.pl {
+    # Frontend — static files
+    root * /opt/tramwajewodne/client/dist
+    file_server
+
+    # API — proxy do Node.js
+    handle /api/* {
+        reverse_proxy localhost:3001
+    }
+
+    # SPA fallback — wszystko inne → index.html
+    try_files {path} /index.html
+
+    # Security headers
+    header {
+        X-Frame-Options DENY
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-XSS-Protection "1; mode=block"
+    }
+
+    # Gzip
+    encode gzip
+}

@@ -1,0 +1,183 @@
+# Tramwaje Wodne — Task List
+
+## Etap 1 — MVP ✅
+- [x] 1.1 — Fundament (Vite+Express, SQLite schema, seed, testy)
+- [x] 1.2 — Auth (JWT, bcrypt, register, login, roleGuard, zarządzanie zespołem)
+- [x] 1.3 — Zarządzanie zadaniami (CRUD, filtry, zależności, czas)
+- [x] 1.4 — Dashboard + Login UI + Admin CRUD
+- [x] 1.5 — Panel pracownika (zadania, timer, raport, status)
+- [x] 1.6 — AI Asystent (czat kontekstowy + pogoda w kontekście)
+- [x] 1.7 — Pogoda (7-dniowa, okna malowania/spawania)
+- [x] 1.8 — Magazyn i zakupy (CRUD, lista zakupów, AI kontekst)
+- [x] 1.9 — Notatki głosowe (Web Speech API → AI → zadanie)
+- [x] 1.10 — Testy E2E i weryfikacja MVP
+- [x] 1.11 — Naprawa luk audytu (upload zdjęć, filtry, data sezonu)
+- [x] 1.12 — Zabezpieczenie danych (Naprawa krytyczna z podziałami i listami zakupów)
+
+
+---
+
+## Etap 2 (10 modułów)
+
+- [x] 2.1 — Widok Gantt / Timeline
+  - [x] Scheduling engine (DAG, topological sort, Critical Path Method)
+  - [x] Oś czasu ze strzałkami zależności
+  - [x] Filtrowanie per statek / osoba
+  - [x] Ścieżka krytyczna z wizualizacją
+  - [x] Drag-to-move pasków (snap-to-day, save planned_start)
+  - [x] Sidebar edycji (deadline, godziny, pracownicy, zależności)
+  - [x] Kolory per statek w Gantt
+  - [x] CPM z planned_start constraints (slack fix po drag)
+  - [x] Weather overlay na timeline (ikony pogodowe, bad-weather columns)
+  - [x] Split zadań (✂️ rozdziel wokół pogody / na pół)
+  - [x] Merge zadań (🔗 połącz rodzeństwo z powrotem)
+  - [x] Per-task weather alerts (progi z ustawień zadania)
+  - [x] Weekendy pracujące (brak zaciemniania)
+  - [x] Timezone fix (formatDateISO local, planned_start local parse)
+- [x] 2.2 — Certyfikaty i inspekcje
+  - [x] Rejestr certyfikatów z datami ważności
+  - [x] Alerty wygasania ("za 30 dni wygasa X")
+  - [x] Checklisty inspekcyjne (cyfrowe)
+  - [x] Skanowanie świadectw → AI wyciąga dane i terminy (zdjęcia + PDF)
+- [x] 2.3 — QR kody + Baza Wiedzy
+  - [x] Generowanie QR per urządzenie (pompa/generator/zawór)
+  - [x] Skan QR → karta urządzenia (model, nr seryjny, historia napraw)
+  - [x] Instrukcje obsługi krok-po-kroku ze zdjęciami ("Jak wymienić pompę")
+  - [x] Tworzenie instrukcji: Admin opisuje/nagrywa → AI formatuje
+  - [x] Powiązanie QR ↔ instrukcja (skan QR → od razu instrukcja wymiany)
+  - [x] Delegowanie: pracownik skanuje QR → widzi instrukcję → robi sam
+  - [x] AI odpowiada z bazy ("Jak wymienić filtr w D41P?")
+- [x] 2.4 — Baza dostawców + optymalizacja zakupów
+  - [x] CRUD dostawców (nazwa, kontakt, kategorie, lokalizacja)
+  - [x] Powiązanie dostawców z pozycjami magazynowymi
+  - [x] AI grupuje zakupy po lokalizacjach/sklepach
+  - [x] AI optymalizacja tras zakupowych z czasem dojazdu
+- [x] 2.4b — Google Maps + AI wyszukiwanie dostawców + materiały
+  - [x] Google Maps iframe z pinezkami dostawców
+  - [x] AI wyszukiwanie dostawców (Gemini + Google Search grounding)
+  - [x] AI generowanie listy materiałów per zadanie (z porównaniem magazynu)
+  - [x] Lista zakupów automatyczna (braki vs. stan magazynowy)
+- [x] 2.5 — Budżet i koszty
+  - [x] Koszty per zadanie (materiały + robocizna, plan vs. fakt)
+  - [x] Koszty per statek (agregacja)
+  - [x] Budżet sezonu z porównaniem planowany vs. rzeczywisty
+  - [x] Wykresy i raporty kosztowe (Canvas bar + donut chart)
+  - [x] Realne koszty zakupów (actual_unit_price w task_materials)
+- [ ] 2.6 — Google Calendar Sync
+  - [ ] OAuth2 + Google Calendar API
+  - [ ] Sync deadline'ów, dźwigów, stoczni, rejsów, startu sezonu
+  - [ ] Dwukierunkowa synchronizacja
+- [x] 2.7 — Monitoring poziomu wody ✅
+  - [x] Integracja IMGW API (dane hydrologiczne, cache 30min)
+  - [x] Alerty niskiego poziomu (Kutrzeba min 0.65m zanurzenia) + zjawiska lodowe
+  - [x] Dashboard widget (gauge, temperatura, alerty)
+  - [x] Uwzględnianie przy rejsach próbnych + kontekst AI
+  - [x] 11 testów jednostkowych
+- [x] 2.8 — Dokumentacja fotograficzna ✅
+  - [x] Załączniki per zadanie (istniejący system Etap 1)
+  - [x] Rozbudowana galeria z timestampem (PhotoGallery: siatka + oś czasu)
+  - [x] Porównanie przed/po (widok side-by-side z tagami)
+  - [x] Historia wizualna (timeline z grupowaniem dat, kolorowymi tagami)
+- [x] 2.9 — Motogodziny + interwały serwisowe ✅
+  - [x] Licznik motogodzin per silnik i generator
+  - [x] Definicja interwałów (wymiana oleju co X h, przegląd pompy co Y h)
+  - [x] Alerty overdue/due-soon ("za 20 motogodzin wymiana oleju D41P")
+  - [x] Logowanie serwisów z auto-resetem interwałów
+  - [x] Strona EngineHoursPage (liczniki, interwały, logi)
+  - [x] AI kontekst serwisowy
+  - [x] 23 testów jednostkowych
+- [x] 2.10 — Zbiorniki i zużycie ✅
+  - [x] ⛽ Paliwo: logowanie tankowań, zużycie per rejs, alert niski stan
+  - [x] 💧 Woda pitna: poziom, alert niski stan
+  - [x] 🚽 Nieczystości: poziom, alert "czas opróżnić"
+  - [x] Strona TanksPage (per statek, gauge, refill/consumption/drain)
+  - [x] AI kontekst ("Przed jutrzejszym rejsem S3 uzupełnij wodę na Zefirze")
+  - [x] 21 testów jednostkowych
+
+### Extras (poza roadmapą)
+- [x] Audyt #9 — 5 fixów (attachment RBAC, nav overflow, schema numbering, worker equipment link, changePassword)
+- [x] Audyt #10 — 4 poprawki krytyczne (splitTask ON DELETE CASCADE, React Dropdown select, bug zaniżania List Zakupów)
+- [x] TeamPage — zarządzanie pracownikami (tabela, toggle active, zmiana hasła)
+- [x] PWA manifest + service worker + ikona
+- [x] Deployment package (deploy/ folder)
+- [x] START.bat (double-click start)
+- [x] Cloudflare Tunnel config
+
+---
+
+## Etap 3 — Aplikacja Mobilna (7 modułów)
+
+- [x] 3.1 — Panel Pracownika (telefon)
+  - [x] Moje zadania dziś/jutro/później (algorytm schedulingu)
+  - [x] Zmiana statusu zadania + zdjęcia
+  - [x] Logowanie czasu pracy (timer/ręczne)
+  - [x] Zgłoszenie problemu → powiadomienie admina
+  - [x] Podgląd i edycja magazynu
+  - [x] AI czat (Gemini API przez LTE)
+- [x] 3.2 — Panel Admina — Light (telefon)
+  - [x] Podsumowanie dnia (zadania, kto pracuje, co zablokowane)
+  - [x] Powiadomienia (zgłoszenia, zdjęcia do sprawdzenia)
+  - [x] Quick approve/reject
+  - [x] AI czat kontekstowy
+- [x] 3.3 — Synchronizacja WiFi
+  - [x] SQLite telefon ↔ SQLite serwer (pull/push sync service)
+  - [x] Sync queue (kolejka zmian offline)
+  - [x] Strategia rozwiązywania konfliktów („server wins" + notyfikacja)
+  - [/] Kompresja i upload zdjęć po WiFi (foto attach w report, brak kompresji)
+  - [x] Auto-detect serwera (monitor + auto-reconnect + auto-sync)
+- [x] 3.4 — Offline-first architektura
+  - [x] Lokalna baza SQLite (expo-sqlite, 7 tabel)
+  - [x] Cache zadań, magazynu, powiadomień
+  - [x] Queue mutations (status, czas, zgłoszenia → kolejka)
+  - [x] Wskaźnik sync w UI (Profil: online/offline dot, last sync, pending count)
+- [x] 3.5 — Gemini AI na telefonie
+  - [x] AI czat przez serwer (proxy do Gemini API)
+  - [x] Konwersacje z historią
+  - [x] Sugestie kontekstowe (pogoda, zadania, magazyn)
+- [x] 3.6 — Powiadomienia lokalne
+  - [x] Android notification channels (tasks, sync, alerts)
+  - [x] Przypomnienia z algorytmu schedulingu
+  - [x] Deadline'y i alerty serwisowe
+  - [ ] Firebase Cloud Messaging (opcjonalnie, gdy internet)
+- [x] 3.7 — Setup projektu i deployment
+  - [x] React Native + Expo init (TypeScript)
+  - [x] React Navigation (stack + bottom tabs)
+  - [x] Expo prebuild → Android Studio build + install
+  - [ ] EAS Build → APK (standalone)
+  - [ ] Dystrybucja APK do ręcznej instalacji
+
+---
+
+## Etap 4 (8 modułów)
+
+- [ ] 4.1 — Szablony sezonowe
+  - [ ] Kopiowanie planu z zeszłego sezonu
+  - [ ] AI porównanie ("w zeszłym roku malowanie zajęło 45h")
+  - [ ] Biblioteka szablonów
+- [ ] 4.2 — Grafik załogi (sezon)
+  - [ ] Grafik dzienny (kto na którym statku)
+  - [ ] Urlopy i zastępstwa
+  - [ ] AI optymalizacja przypisań
+- [ ] 4.3 — Tracking godzin pracy
+  - [ ] Timer per osoba (rozbudowany)
+  - [ ] Podsumowanie miesięczne
+  - [ ] Historia per pracownik
+- [ ] 4.4 — Checklisty przed rejsem
+  - [ ] Checklista per statek (sprzęt ratunkowy, światła, radio, paliwo)
+  - [ ] Wypełnianie na telefonie (odhaczanie przed każdym rejsem)
+  - [ ] Zapis: kto, kiedy wypełnił (na potrzeby kontroli)
+- [ ] 4.5 — AI uczące się z historii
+  - [ ] Korekta estymacji ("niedoszacowaliście o 20%")
+  - [ ] Podpowiedzi cenowe ("ostatnio kupowaliście filtry za 120 zł w sklepie X")
+  - [ ] Trendy ("co roku malowanie kadłuba zajmuje dłużej — rozważ piaskowanie")
+- [ ] 4.6 — Powiadomienia push
+  - [ ] Service Worker + Web Push API
+  - [ ] Deadline'y, okna pogodowe, zgłoszenia pracowników
+  - [ ] Ustawienia per użytkownik
+- [ ] 4.7 — Tryb offline (natywna apka)
+  - [ ] Migracja z PWA na natywną apkę
+  - [ ] Pełny offline z sync (zbudowane w Etapie 3)
+- [ ] 4.8 — Historia i raporty
+  - [ ] Archiwum sezonów (zamykanie sezonu)
+  - [ ] Raporty (godziny, koszty, zadania)
+  - [ ] Eksport PDF / CSV

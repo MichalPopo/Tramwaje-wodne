@@ -1,0 +1,244 @@
+/* ============================================================
+   Voice Note Button + Overlay
+   ============================================================ */
+
+/* FAB (Floating Action Button) */
+.voice-fab {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.voice-fab:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+}
+
+.voice-fab:active {
+    transform: scale(0.95);
+}
+
+.voice-fab.recording {
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+    animation: fabPulse 1.5s ease-in-out infinite;
+}
+
+.voice-fab.processing {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+@keyframes fabPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 4px 32px rgba(239, 68, 68, 0.7);
+    }
+}
+
+/* Overlay */
+.voice-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.voice-panel {
+    width: min(480px, 90vw);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Recording status */
+.voice-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--font-lg);
+    font-weight: 700;
+    color: #ef4444;
+}
+
+.voice-pulse {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.3);
+    }
+}
+
+/* Transcript */
+.voice-transcript {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    min-height: 80px;
+    font-size: var(--font-base);
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+.voice-interim {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.voice-placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Actions */
+.voice-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+/* Processing */
+.voice-processing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+/* Confirm */
+.voice-confirm-title {
+    font-size: var(--font-lg);
+    font-weight: 700;
+    margin: 0;
+}
+
+.voice-proposal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+}
+
+.voice-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.voice-field label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.voice-field strong {
+    font-size: var(--font-base);
+    color: var(--text-primary);
+}
+
+.voice-field p {
+    margin: 0;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.voice-transcript-small {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Toast */
+.voice-toast {
+    position: fixed;
+    bottom: 6rem;
+    left: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius);
+    font-size: var(--font-sm);
+    z-index: 950;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .voice-fab {
+        bottom: 1.5rem;
+        left: 1.5rem;
+        width: 48px;
+        height: 48px;
+        font-size: 1.25rem;
+    }
+}

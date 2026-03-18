@@ -1,0 +1,9 @@
+# Tramwaje Wodne — Root .gitignore
+node_modules/
+dist/
+.env
+*.db
+*.log
+.DS_Store
+Thumbs.db
+*.wasm
