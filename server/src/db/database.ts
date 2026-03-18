@@ -16,11 +16,15 @@ const SEED_PATH = join(__dirname, 'seed.sql');
  * Uses Turso (cloud) in production, local file in dev, in-memory for tests.
  */
 export async function initDatabase(): Promise<Client> {
+    // Debug: dump ALL env vars containing TURSO
+    const tursoVars = Object.entries(process.env)
+        .filter(([k]) => k.toUpperCase().includes('TURSO'))
+        .map(([k, v]) => `  ${k} = ${v?.slice(0, 50)}`);
+    console.log('[DB] All TURSO env vars found:', tursoVars.length);
+    tursoVars.forEach(line => console.log(line));
+
     const url = process.env.TURSO_DATABASE_URL || 'file:data/tramwajewodne.db';
     const authToken = process.env.TURSO_AUTH_TOKEN;
-
-    console.log('[DB] TURSO_DATABASE_URL:', url.slice(0, 40) + '...');
-    console.log('[DB] TURSO_AUTH_TOKEN:', authToken ? authToken.slice(0, 20) + '...' : '(not set)');
 
     client = createClient({
         url,
