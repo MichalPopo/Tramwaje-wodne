@@ -16,14 +16,24 @@ const SEED_PATH = join(__dirname, 'seed.sql');
  * Uses Turso (cloud) in production, local file in dev, in-memory for tests.
  */
 export async function initDatabase(): Promise<Client> {
-    // Use new env var names (TURSO_DB_URL / TURSO_DB_TOKEN) with fallback to old names
-    const url = process.env.TURSO_DB_URL
-        || process.env.TURSO_DATABASE_URL
-        || 'file:data/tramwajewodne.db';
-    const authToken = process.env.TURSO_DB_TOKEN
-        || process.env.TURSO_AUTH_TOKEN;
+    // Production Turso URL (not a secret — only the token is secret)
+    const PROD_TURSO_URL = 'libsql://tramwaje-wodne-michalpopo.aws-eu-west-1.turso.io';
 
-    console.log('[DB] Using URL:', url.slice(0, 50));
+    // Try env vars first, fallback to hardcoded production URL, then local file
+    let url = process.env.TURSO_DB_URL || process.env.TURSO_DATABASE_URL || '';
+
+    // If the env var doesn't look like a valid URL (e.g. contains JWT), use hardcoded
+    if (url && !url.startsWith('libsql://') && !url.startsWith('file:')) {
+        console.log('[DB] ⚠️ TURSO_DATABASE_URL invalid, using hardcoded production URL');
+        url = PROD_TURSO_URL;
+    }
+    if (!url) {
+        url = process.env.NODE_ENV === 'production' ? PROD_TURSO_URL : 'file:data/tramwajewodne.db';
+    }
+
+    const authToken = process.env.TURSO_DB_TOKEN || process.env.TURSO_AUTH_TOKEN;
+
+    console.log('[DB] Using URL:', url.slice(0, 60));
     console.log('[DB] Auth token:', authToken ? 'set (' + authToken.length + ' chars)' : '(not set)');
 
     client = createClient({
