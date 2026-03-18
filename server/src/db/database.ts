@@ -55,22 +55,30 @@ export async function initDatabase(): Promise<Client> {
         try { await client.execute(sql); } catch { /* already exists */ }
     }
 
-    // Run seed data (INSERT OR IGNORE makes it idempotent)
-    const seed = readFileSync(SEED_PATH, 'utf-8');
-    await client.executeMultiple(seed);
+    // Only seed if database is fresh (no users yet)
+    const userCount = await client.execute('SELECT COUNT(*) as cnt FROM users');
+    const cnt = Number(userCount.rows[0]?.cnt ?? 0);
 
-    // Seed task assignments
-    const assignments = [
-        [1, 2], [2, 2], [5, 2], [6, 2],
-        [1, 1], [3, 1],
-    ];
-    for (const [taskId, userId] of assignments) {
-        try {
-            await client.execute({
-                sql: 'INSERT OR IGNORE INTO task_assignments (task_id, user_id) VALUES (?, ?)',
-                args: [taskId, userId],
-            });
-        } catch { /* ignore */ }
+    if (cnt === 0) {
+        console.log('[DB] Fresh database — running seed.sql');
+        const seed = readFileSync(SEED_PATH, 'utf-8');
+        await client.executeMultiple(seed);
+
+        // Seed task assignments
+        const assignments = [
+            [1, 2], [2, 2], [5, 2], [6, 2],
+            [1, 1], [3, 1],
+        ];
+        for (const [taskId, userId] of assignments) {
+            try {
+                await client.execute({
+                    sql: 'INSERT OR IGNORE INTO task_assignments (task_id, user_id) VALUES (?, ?)',
+                    args: [taskId, userId],
+                });
+            } catch { /* ignore */ }
+        }
+    } else {
+        console.log('[DB] Existing database — skipping seed');
     }
 
     return client;
