@@ -107,9 +107,9 @@ Jeśli na zdjęciach nie widać certyfikatu, zwróć: {"error": "Nie rozpoznano 
 });
 
 /** GET /api/certificates/:id */
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
     const id = parseInt(req.params.id as string, 10);
-    if (isNaN(id)) { res.status(400).json({ error: 'Nieprawidłowe ID' }); return; }
+    if (isNaN(id)) { return next(); }
     const cert = await getCertificate(id);
     if (!cert) { res.status(404).json({ error: 'Certyfikat nie znaleziony' }); return; }
     res.json({ certificate: cert });

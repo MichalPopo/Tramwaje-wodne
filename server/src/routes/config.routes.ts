@@ -12,11 +12,7 @@ router.use(authMiddleware);
  */
 router.get('/:key', async (req, res) => {
     const value = await getConfig(req.params.key);
-    if (value === undefined) {
-        res.status(404).json({ error: 'Klucz nie znaleziony' });
-        return;
-    }
-    res.json({ key: req.params.key, value });
+    res.json({ key: req.params.key, value: value ?? '' });
 });
 
 /**
