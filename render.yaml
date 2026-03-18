@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: tramwaje-wodne-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: server
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: CORS_ORIGIN
+        value: https://michalpopo.github.io
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+    disk:
+      name: tramwaje-data
+      mountPath: /opt/render/project/src/server/data
+      sizeGB: 1

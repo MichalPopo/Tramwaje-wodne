@@ -27,9 +27,16 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // --- Middleware ---
+const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map(o => o.trim()) || [];
 app.use(cors({
     origin: process.env.NODE_ENV === 'production'
-        ? process.env.CORS_ORIGIN
+        ? (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error('CORS not allowed'));
+            }
+        }
         : true, // Allow any origin in dev (Vite + mobile app on LAN)
     credentials: true,
 }));
