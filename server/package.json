@@ -4,8 +4,8 @@
     "type": "module",
     "scripts": {
         "dev": "tsx watch src/index.ts",
-        "start": "node dist/index.js",
-        "build": "tsc",
+        "start": "node dist/server/src/index.js",
+        "build": "tsc && node -e \"const fs=require('fs');const path=require('path');const d='dist/server/src/db';fs.mkdirSync(d,{recursive:true});['schema.sql','seed.sql'].forEach(f=>{fs.copyFileSync(path.join('src/db',f),path.join(d,f));console.log('Copied',f)})\"",
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage"
