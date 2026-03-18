@@ -50,7 +50,7 @@ router.get('/gantt', async (req, res) => {
  * My assigned tasks (must be before :id route)
  */
 router.get('/my', async (req, res) => {
-    const tasks = getMyTasks(req.user!.id);
+    const tasks = await getMyTasks(req.user!.id);
     res.json({ tasks });
 });
 
@@ -59,7 +59,7 @@ router.get('/my', async (req, res) => {
  * Tasks due today or overdue
  */
 router.get('/today', async (_req, res) => {
-    const tasks = getTodayTasks();
+    const tasks = await getTodayTasks();
     res.json({ tasks });
 });
 
