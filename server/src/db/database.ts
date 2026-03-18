@@ -19,6 +19,9 @@ export async function initDatabase(): Promise<Client> {
     const url = process.env.TURSO_DATABASE_URL || 'file:data/tramwajewodne.db';
     const authToken = process.env.TURSO_AUTH_TOKEN;
 
+    console.log('[DB] TURSO_DATABASE_URL:', url.slice(0, 40) + '...');
+    console.log('[DB] TURSO_AUTH_TOKEN:', authToken ? authToken.slice(0, 20) + '...' : '(not set)');
+
     client = createClient({
         url,
         ...(authToken ? { authToken } : {}),
