@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { inventoryApi, shipsApi, type InventoryItem, type ShoppingListItem, type Ship } from '../api';
+import { inventoryApi, shipsApi, configApi, type InventoryItem, type ShoppingListItem, type Ship } from '../api';
 import AiChat from '../components/AiChat';
 import VoiceNoteButton from '../components/VoiceNoteButton';
 import './InventoryPage.css';
@@ -49,6 +49,11 @@ export default function InventoryPage() {
     const [purchaseItem, setPurchaseItem] = useState<ShoppingListItem | null>(null);
     const [purchaseQty, setPurchaseQty] = useState('');
 
+    // Locations management
+    const [savedLocations, setSavedLocations] = useState<string[]>(PREDEFINED_LOCATIONS);
+    const [showLocationsModal, setShowLocationsModal] = useState(false);
+    const [newLocation, setNewLocation] = useState('');
+
     // Form
     const [form, setForm] = useState({
         name: '', category: 'material', unit: '', quantity: '0',
@@ -61,10 +66,17 @@ export default function InventoryPage() {
             inventoryApi.list(token),
             inventoryApi.shoppingList(token).catch(() => ({ items: [] as ShoppingListItem[] })),
             shipsApi.list(token),
-        ]).then(([inv, shopping, sh]) => {
+            configApi.get(token, 'inventory_locations').catch(() => ({ value: '' })),
+        ]).then(([inv, shopping, sh, locConfig]) => {
             setItems(inv.items);
             setShoppingList(shopping.items);
             setShips(sh.ships);
+            if (locConfig.value) {
+                try { setSavedLocations(JSON.parse(locConfig.value)); } catch { /* keep defaults */ }
+            } else {
+                // First load: seed config with defaults
+                configApi.set(token, 'inventory_locations', JSON.stringify(PREDEFINED_LOCATIONS)).catch(() => {});
+            }
         }).catch(console.error)
             .finally(() => setIsLoading(false));
     }, [token]);
@@ -80,12 +92,27 @@ export default function InventoryPage() {
 
     const lowStockCount = items.filter(i => i.is_low_stock).length;
 
-    // Unique locations: predefined + from existing items
+    // Unique locations: saved config + from existing items
     const allLocations = useMemo(() => {
         const fromItems = items.map(i => i.location).filter(Boolean) as string[];
-        const merged = new Set([...PREDEFINED_LOCATIONS, ...fromItems]);
+        const merged = new Set([...savedLocations, ...fromItems]);
         return [...merged].sort((a, b) => a.localeCompare(b, 'pl'));
-    }, [items]);
+    }, [items, savedLocations]);
+
+    const addLocation = async (loc: string) => {
+        if (!token || !loc.trim()) return;
+        const updated = [...savedLocations, loc.trim()].sort((a, b) => a.localeCompare(b, 'pl'));
+        setSavedLocations(updated);
+        setNewLocation('');
+        await configApi.set(token, 'inventory_locations', JSON.stringify(updated)).catch(() => {});
+    };
+
+    const removeLocation = async (loc: string) => {
+        if (!token) return;
+        const updated = savedLocations.filter(l => l !== loc);
+        setSavedLocations(updated);
+        await configApi.set(token, 'inventory_locations', JSON.stringify(updated)).catch(() => {});
+    };
 
     const openCreate = () => {
         setEditingItem(null);
@@ -219,6 +246,11 @@ export default function InventoryPage() {
                     <button className={`inv-tab ${activeTab === 'shopping' ? 'active' : ''}`} onClick={() => setActiveTab('shopping')}>
                         🛒 Lista zakupów ({shoppingList.length})
                     </button>
+                    {user?.role === 'admin' && (
+                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setShowLocationsModal(true)}>
+                            📍 Lokalizacje
+                        </button>
+                    )}
                 </div>
 
                 {activeTab === 'inventory' && (
@@ -404,6 +436,46 @@ export default function InventoryPage() {
                                     {editingItem ? '💾 Zapisz' : '➕ Dodaj'}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Locations management modal */}
+            {showLocationsModal && (
+                <div className="modal-overlay" onClick={() => setShowLocationsModal(false)}>
+                    <div className="modal-content inv-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="tfm-header">
+                            <h2>📍 Lokalizacje magazynowe</h2>
+                            <button className="modal-close" onClick={() => setShowLocationsModal(false)}>✕</button>
+                        </div>
+                        <div className="tfm-form">
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                                <input
+                                    className="tfm-input"
+                                    placeholder="Nowa lokalizacja..."
+                                    value={newLocation}
+                                    onChange={e => setNewLocation(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter' && newLocation.trim()) { addLocation(newLocation); } }}
+                                    autoFocus
+                                    style={{ flex: 1 }}
+                                />
+                                <button className="btn btn-primary btn-sm" onClick={() => addLocation(newLocation)} disabled={!newLocation.trim()}>
+                                    ➕ Dodaj
+                                </button>
+                            </div>
+                            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                                {savedLocations.length === 0 && <p style={{ color: 'var(--text-dim)' }}>Brak lokalizacji</p>}
+                                {savedLocations.map((loc: string) => (
+                                    <div key={loc} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.5rem', borderBottom: '1px solid var(--border)' }}>
+                                        <span>📍 {loc}</span>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => removeLocation(loc)} title="Usuń">🗑️</button>
+                                    </div>
+                                ))}
+                            </div>
+                            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--text-dim)', marginTop: '0.75rem' }}>
+                                Lokalizacje pojawiają się jako podpowiedzi przy edycji pozycji magazynowych.
+                            </p>
                         </div>
                     </div>
                 </div>
