@@ -463,7 +463,7 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Time logs */}
-                            {viewingTask.time_logs.length > 0 && (
+                            {viewingTask.time_logs?.length > 0 && (
                                 <div style={{ marginBottom: '1rem' }}>
                                     <h3 style={{ fontSize: 'var(--font-md)', marginBottom: '0.5rem' }}>⏱ Zalogowany czas</h3>
                                     {viewingTask.time_logs.map(log => (

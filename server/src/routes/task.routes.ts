@@ -278,7 +278,7 @@ router.patch('/:id/status', async (req, res) => {
         }
 
         const input = changeStatusSchema.parse(req.body);
-        const task = changeTaskStatus(id, input, req.user!.id, req.user!.role);
+        const task = await changeTaskStatus(id, input, req.user!.id, req.user!.role);
         if (!task) {
             res.status(404).json({ error: 'Zadanie nie znalezione' });
             return;

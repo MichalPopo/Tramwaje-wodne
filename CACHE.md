@@ -14,6 +14,7 @@
 | **Serwer działa** | TAK — backend Render (tramwaje-wodne-api.onrender.com), frontend GH Pages, baza Turso |
 | **Mobile** | ✅ Expo SDK 55, standalone APK (embedded JS bundle), offline SQLite, sync WiFi, notifications |
 | **APK build** | ✅ BUILD_APK.bat (one-click: export bundle + Gradle assembleDebug) |
+| **APK download** | ✅ GitHub Releases v1.0.0 → przycisk 📱 APK na stronie |
 | **Seeded users** | admin@tramwajewodne.pl / Kapitan123!, pracownik@tramwajewodne.pl / Kapitan123! |
 | **Klucze API** | ✅ Gemini: pool kluczy (key-pool.service.ts), ✅ Open-Meteo: nie wymaga klucza |
 | **Deploy** | ✅ **Render** (backend), ✅ **GitHub Pages** (frontend SPA), ✅ **Turso** (baza danych) |
@@ -21,7 +22,7 @@
 | **Backend URL** | https://tramwaje-wodne-api.onrender.com |
 | **DB URL** | libsql://tramwaje-wodne-michalpopo.aws-eu-west-1.turso.io |
 | **Firewall** | ✅ Reguła "Tramwaje Wodne API" — port 3001 TCP (incoming, dev only) |
-| **Ostatnia aktualizacja** | 2026-03-19T17:40:00+01:00 |
+| **Ostatnia aktualizacja** | 2026-03-19T17:52:00+01:00 |
 
 ### Feature map — co jest zrobione
 
@@ -59,7 +60,8 @@
 | — | BUILD_APK.bat | ✅ | One-click APK build (export + Gradle assembleDebug) |
 | — | Admin task management (web) | ✅ | DashboardPage: TaskDetailModal (status change + time logging) |
 | — | Admin task management (mobile) | ✅ | Fix: TaskDetailScreen crash, AdminTasksScreen statuses, AdminDashScreen user filter, navigation |
-| — | APK download (web) | ✅ | DashboardPage: przycisk 📱 APK → GitHub raw URL |
+| — | APK download (web) | ✅ | DashboardPage: przycisk 📱 APK → GitHub Releases (`/releases/latest`) |
+| — | GitHub Release v1.0.0 | ✅ | `gh release create v1.0.0` z app-debug.apk (166MB) |
 
 ---
 
@@ -397,6 +399,8 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 - Gantt: wiele zadań per osoba per dzień → automatycznie rozkładane na kolejne dni (capacity 1/os/dzień)
 - GH Pages SPA: `GET /Tramwaje-vodne/someRoute` zwraca 404 w Network tab — to normalne (404.html = index.html trick)
 - Render free tier: serwer usypia po 15 min bezczynności, pierwszy request trwa ~30s
+- APK (166MB) zbyt duży na git repo → dystrybucja przez GitHub Releases (limit 2GB per asset)
+- `gh` CLI zainstalowane (`winget install GitHub.cli`), zalogowane jako MichalPopo
 
 ---
 
