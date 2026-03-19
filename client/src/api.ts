@@ -79,6 +79,12 @@ export const authApi = {
             method: 'PATCH',
             body: JSON.stringify({ new_password: newPassword }),
         }),
+
+    deleteUser: (token: string, userId: number) =>
+        request<{ deleted: boolean }>(`/auth/users/${userId}`, {
+            token,
+            method: 'DELETE',
+        }),
 };
 
 // --- Tasks API ---

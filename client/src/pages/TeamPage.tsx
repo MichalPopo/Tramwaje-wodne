@@ -156,12 +156,27 @@ export default function TeamPage() {
                                                 title="Zmień hasło"
                                             >🔑</button>
                                             {u.id !== user?.id && (
-                                                <button
-                                                    className={`btn btn-sm ${u.is_active ? 'btn-ghost team-deactivate' : 'btn-primary'}`}
-                                                    onClick={() => handleToggle(u)}
-                                                >
-                                                    {u.is_active ? 'Dezaktywuj' : 'Aktywuj'}
-                                                </button>
+                                                <>
+                                                    <button
+                                                        className={`btn btn-sm ${u.is_active ? 'btn-ghost team-deactivate' : 'btn-primary'}`}
+                                                        onClick={() => handleToggle(u)}
+                                                    >
+                                                        {u.is_active ? 'Dezaktywuj' : 'Aktywuj'}
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm btn-ghost"
+                                                        style={{ color: 'var(--accent-red)' }}
+                                                        title="Usuń użytkownika"
+                                                        onClick={async () => {
+                                                            if (!token) return;
+                                                            if (!confirm(`Usunąć użytkownika "${u.name}"? To usunie również jego przypisania do zadań.`)) return;
+                                                            try {
+                                                                await authApi.deleteUser(token, u.id);
+                                                                loadUsers();
+                                                            } catch { setError('Błąd usuwania użytkownika'); }
+                                                        }}
+                                                    >🗑</button>
+                                                </>
                                             )}
                                             {u.id === user?.id && (
                                                 <span className="team-self-badge">To Ty</span>

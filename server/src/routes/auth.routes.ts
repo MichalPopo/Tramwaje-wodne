@@ -191,4 +191,40 @@ router.patch('/users/:id/password', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * DELETE /api/auth/users/:id
+ * 🔒 Admin only — permanently delete user and clean up references
+ */
+router.delete('/users/:id', authMiddleware, roleGuard('admin'), async (req, res) => {
+    const { execute } = await import('../db/database.js');
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id) || id <= 0) {
+        res.status(400).json({ error: 'Nieprawidłowe ID użytkownika' });
+        return;
+    }
+
+    // Prevent self-deletion
+    if (id === req.user!.id) {
+        res.status(400).json({ error: 'Nie możesz usunąć swojego konta' });
+        return;
+    }
+
+    const target = await getUserById(id);
+    if (!target) {
+        res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+        return;
+    }
+
+    // Remove task assignments
+    await execute('DELETE FROM task_assignments WHERE user_id = ?', [id]);
+    // Remove time logs
+    await execute('UPDATE time_logs SET user_id = NULL WHERE user_id = ?', [id]);
+    // Remove expenses created by
+    await execute('UPDATE expenses SET created_by = NULL WHERE created_by = ?', [id]);
+    // Delete user
+    await execute('DELETE FROM users WHERE id = ?', [id]);
+
+    res.json({ deleted: true });
+});
+
 export default router;
