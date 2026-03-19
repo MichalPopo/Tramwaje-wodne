@@ -30,6 +30,10 @@ export default function InventoryPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
+    // Purchase modal
+    const [purchaseItem, setPurchaseItem] = useState<ShoppingListItem | null>(null);
+    const [purchaseQty, setPurchaseQty] = useState('');
+
     // Form
     const [form, setForm] = useState({
         name: '', category: 'material', unit: '', quantity: '0',
@@ -123,21 +127,20 @@ export default function InventoryPage() {
         } catch { setError('Błąd zmiany stanu'); }
     };
 
-    const handlePurchased = async (item: ShoppingListItem) => {
-        if (!token) return;
-        const qty = prompt(`Ile kupiono? (${item.unit || 'szt'})`, String(item.to_buy));
-        if (qty === null) return;
-        const amount = parseFloat(qty);
+    const handlePurchased = async () => {
+        if (!token || !purchaseItem) return;
+        const amount = parseFloat(purchaseQty);
         if (isNaN(amount) || amount <= 0) {
             setError('Podaj poprawną ilość');
             return;
         }
         try {
-            // Find inventory item by name and adjust quantity
-            const invItem = items.find(i => i.name === item.name);
+            const invItem = items.find(i => i.name === purchaseItem.name);
             if (invItem) {
                 await inventoryApi.adjustQuantity(token, invItem.id, amount);
             }
+            setPurchaseItem(null);
+            setPurchaseQty('');
             loadData();
         } catch { setError('Błąd aktualizacji stanu magazynowego'); }
     };
@@ -311,7 +314,7 @@ export default function InventoryPage() {
                                             <td className="inv-tasks-cell">{item.tasks.join(', ')}</td>
                                             <td className="inv-actions">
                                                 {item.to_buy > 0 && (
-                                                    <button className="btn btn-primary btn-sm" onClick={() => handlePurchased(item)} title="Oznacz jako kupione i dodaj do magazynu">
+                                                    <button className="btn btn-primary btn-sm" onClick={() => { setPurchaseItem(item); setPurchaseQty(String(item.to_buy)); }} title="Oznacz jako kupione i dodaj do magazynu">
                                                         ✅ Kupiono
                                                     </button>
                                                 )}
@@ -371,6 +374,47 @@ export default function InventoryPage() {
                                 <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Anuluj</button>
                                 <button className="btn btn-primary" onClick={handleSave}>
                                     {editingItem ? '💾 Zapisz' : '➕ Dodaj'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Purchase modal */}
+            {purchaseItem && (
+                <div className="modal-overlay" onClick={() => { setPurchaseItem(null); setPurchaseQty(''); }}>
+                    <div className="modal-content inv-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                        <div className="tfm-header">
+                            <h2>✅ Kupiono</h2>
+                            <button className="modal-close" onClick={() => { setPurchaseItem(null); setPurchaseQty(''); }}>✕</button>
+                        </div>
+                        <div className="tfm-form">
+                            <p style={{ marginBottom: '0.75rem', color: 'var(--text-muted)' }}>
+                                <strong>{purchaseItem.name}</strong> — potrzeba: {purchaseItem.to_buy} {purchaseItem.unit || 'szt'}
+                            </p>
+                            <label style={{ fontSize: 'var(--font-sm)', color: 'var(--text-dim)', marginBottom: '0.25rem', display: 'block' }}>Ile kupiono?</label>
+                            <input
+                                className="tfm-input"
+                                type="number"
+                                min="0.1"
+                                step="0.5"
+                                value={purchaseQty}
+                                onChange={e => setPurchaseQty(e.target.value)}
+                                autoFocus
+                                style={{ fontSize: 'var(--font-lg)', textAlign: 'center', marginBottom: '0.5rem' }}
+                            />
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                {[purchaseItem.to_buy, Math.ceil(purchaseItem.to_buy * 1.5), purchaseItem.to_buy * 2].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map(v => (
+                                    <button key={v} className="btn btn-ghost btn-sm" type="button" onClick={() => setPurchaseQty(String(v))}>
+                                        {v} {purchaseItem.unit || 'szt'}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="tfm-actions">
+                                <button className="btn btn-ghost" onClick={() => { setPurchaseItem(null); setPurchaseQty(''); }}>Anuluj</button>
+                                <button className="btn btn-primary" onClick={handlePurchased} disabled={!purchaseQty || parseFloat(purchaseQty) <= 0}>
+                                    ✅ Potwierdź zakup
                                 </button>
                             </div>
                         </div>
