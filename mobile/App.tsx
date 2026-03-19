@@ -78,8 +78,8 @@ function AdminDashStack() {
 const tabBarStyle = {
     backgroundColor: colors.bgCard,
     borderTopColor: colors.border,
-    height: 60,
-    paddingBottom: 8,
+    paddingBottom: 4,
+    paddingTop: 4,
 };
 
 const tabBarOptions = {
