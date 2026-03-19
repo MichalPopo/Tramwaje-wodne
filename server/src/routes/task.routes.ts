@@ -123,9 +123,17 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/tasks
- * 🔒 Admin only — create new task
+ * 🔒 Admin or worker (problem reports with 🚨 prefix only)
  */
-router.post('/', roleGuard('admin'), async (req, res) => {
+router.post('/', async (req, res) => {
+    // Workers can only create problem reports (title starts with 🚨)
+    if (req.user!.role !== 'admin') {
+        const title = req.body?.title || '';
+        if (!title.startsWith('🚨')) {
+            res.status(403).json({ error: 'Brak uprawnień — tylko admin może tworzyć zadania' });
+            return;
+        }
+    }
     try {
         const input = createTaskSchema.parse(req.body);
         const task = await createTask(input, req.user!.id);
