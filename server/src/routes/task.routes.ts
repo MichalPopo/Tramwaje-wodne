@@ -11,6 +11,7 @@ import {
     getTodayTasks,
     splitTask,
     mergeTasks,
+    getTaskSummary,
 } from '../services/task.service.js';
 import { getGanttData } from '../services/scheduling.service.js';
 import {
@@ -41,6 +42,19 @@ router.get('/gantt', async (req, res) => {
         const data = await getGanttData({ ship_id, assignee_id });
         res.json(data);
     } catch (error) {
+        res.status(500).json({ error: 'Wewnętrzny błąd serwera' });
+    }
+});
+
+/**
+ * GET /api/tasks/summary
+ * Task counts by status
+ */
+router.get('/summary', async (_req, res) => {
+    try {
+        const summary = await getTaskSummary();
+        res.json(summary);
+    } catch {
         res.status(500).json({ error: 'Wewnętrzny błąd serwera' });
     }
 });

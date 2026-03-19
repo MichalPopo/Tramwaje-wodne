@@ -9,10 +9,10 @@ import { colors, spacing, fonts, radius } from '../theme';
 
 interface TaskSummary {
     total: number;
-    pending: number;
+    todo: number;
     in_progress: number;
     blocked: number;
-    completed: number;
+    done: number;
 }
 
 interface Worker {
@@ -40,7 +40,7 @@ export default function AdminDashScreen({ navigation }: any) {
         try {
             const [summaryRes, tasksRes, usersRes] = await Promise.all([
                 fetch(`${serverUrl}/api/tasks/summary`, { headers }).then(r => r.json()).catch(() => null),
-                fetch(`${serverUrl}/api/tasks?limit=10&status=pending,in_progress,blocked`, { headers }).then(r => r.json()).catch(() => ({ tasks: [] })),
+                fetch(`${serverUrl}/api/tasks?limit=10`, { headers }).then(r => r.json()).catch(() => ({ tasks: [] })),
                 fetch(`${serverUrl}/api/auth/users`, { headers }).then(r => r.json()).catch(() => ({ users: [] })),
             ]);
 
@@ -69,20 +69,20 @@ export default function AdminDashScreen({ navigation }: any) {
 
     const statusIcon = (status: string) => {
         switch (status) {
-            case 'pending': return '🔵';
+            case 'todo': return '🟡';
             case 'in_progress': return '🟡';
             case 'blocked': return '🔴';
-            case 'completed': return '🟢';
+            case 'done': return '🟢';
             default: return '⚪';
         }
     };
 
     const statusLabel = (status: string) => {
         switch (status) {
-            case 'pending': return 'Oczekujące';
+            case 'todo': return 'Do zrobienia';
             case 'in_progress': return 'W toku';
             case 'blocked': return 'Zablokowane';
-            case 'completed': return 'Gotowe';
+            case 'done': return 'Gotowe';
             default: return status;
         }
     };
@@ -125,7 +125,7 @@ export default function AdminDashScreen({ navigation }: any) {
                         <Text style={styles.statLabel}>Zablokowane</Text>
                     </View>
                     <View style={[styles.statCard, { borderLeftColor: colors.accentGreen }]}>
-                        <Text style={styles.statValue}>{summary.completed}</Text>
+                        <Text style={styles.statValue}>{summary.done}</Text>
                         <Text style={styles.statLabel}>Gotowe</Text>
                     </View>
                 </View>

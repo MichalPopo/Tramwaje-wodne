@@ -117,6 +117,22 @@ function toTaskSummary(row: TaskRow) {
 
 // --- Service functions ---
 
+export async function getTaskSummary() {
+    const rows = await queryAll<{ status: string; cnt: number }>(
+        `SELECT status, COUNT(*) as cnt FROM tasks GROUP BY status`
+    );
+    const counts: Record<string, number> = {};
+    for (const r of rows) counts[r.status] = r.cnt;
+    const total = rows.reduce((s, r) => s + r.cnt, 0);
+    return {
+        total,
+        todo: counts['todo'] || 0,
+        in_progress: counts['in_progress'] || 0,
+        blocked: counts['blocked'] || 0,
+        done: counts['done'] || 0,
+    };
+}
+
 export async function listTasks(filters: TaskQueryInput) {
     const conditions: string[] = [];
     const params: (string | number | null)[] = [];
