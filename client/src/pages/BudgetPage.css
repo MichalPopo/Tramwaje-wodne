@@ -338,3 +338,69 @@
         width: 100%;
     }
 }
+
+/* --- Expenses --- */
+.budget-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.budget-section-header h2 {
+    margin: 0 !important;
+}
+
+.budget-expense-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.budget-expense-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.budget-expense-row .input {
+    flex: 1;
+}
+
+.budget-exp-amount {
+    max-width: 140px !important;
+    flex: 0 0 140px !important;
+}
+
+.budget-exp-date {
+    max-width: 160px !important;
+    flex: 0 0 160px !important;
+}
+
+.budget-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 2rem;
+    font-size: var(--font-sm);
+}
+
+.budget-table-section + .budget-table-section {
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .budget-expense-row {
+        flex-direction: column;
+    }
+
+    .budget-exp-amount,
+    .budget-exp-date {
+        max-width: 100% !important;
+        flex: 1 !important;
+    }
+}

@@ -7,7 +7,7 @@ import {
     getSeasonSummary,
     getMonthlyTrend,
 } from '../services/budget.service.js';
-import { queryOne, execute } from '../db/database.js';
+import { queryOne, queryAll, execute } from '../db/database.js';
 
 const router = Router();
 
@@ -104,6 +104,49 @@ router.patch('/materials/:id', async (req, res) => {
         [actual_unit_price, id]
     );
     res.json({ ok: true });
+});
+
+// === EXPENSES ===
+
+// GET /api/budget/expenses — list all expenses
+router.get('/expenses', async (_req, res) => {
+    const rows = await queryAll<any>(
+        `SELECT e.*, s.short_name as ship_name, u.name as created_by_name
+         FROM expenses e
+         LEFT JOIN ships s ON s.id = e.ship_id
+         LEFT JOIN users u ON u.id = e.created_by
+         ORDER BY e.date DESC, e.id DESC`,
+        [],
+    );
+    res.json({ expenses: rows });
+});
+
+// POST /api/budget/expenses — create expense
+router.post('/expenses', roleGuard('admin'), async (req, res) => {
+    const { description, amount, category, ship_id, date, notes } = req.body as {
+        description: string; amount: number; category?: string;
+        ship_id?: number | null; date?: string; notes?: string;
+    };
+    if (!description || typeof amount !== 'number' || amount <= 0) {
+        res.status(400).json({ error: 'Opis i kwota (>0) wymagane' });
+        return;
+    }
+    const userId = (req as any).user?.id;
+    const result = await execute(
+        `INSERT INTO expenses (description, amount, category, ship_id, date, notes, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [description.trim(), amount, category || 'inne', ship_id || null, date || new Date().toISOString().split('T')[0], notes || null, userId],
+    );
+    const expense = await queryOne<any>('SELECT * FROM expenses WHERE id = ?', [result.lastInsertRowid]);
+    res.status(201).json({ expense });
+});
+
+// DELETE /api/budget/expenses/:id — delete expense
+router.delete('/expenses/:id', roleGuard('admin'), async (req, res) => {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) { res.status(400).json({ error: 'Invalid ID' }); return; }
+    await execute('DELETE FROM expenses WHERE id = ?', [id]);
+    res.json({ deleted: true });
 });
 
 export default router;

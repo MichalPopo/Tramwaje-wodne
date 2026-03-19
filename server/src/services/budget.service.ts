@@ -46,6 +46,7 @@ export interface SeasonSummary {
     total_actual_cost: number;
     total_material_cost: number;
     total_labor_cost: number;
+    total_expenses: number;
     total_spent: number;
     remaining: number;
     percent_used: number;
@@ -231,7 +232,14 @@ export async function getSeasonSummary(): Promise<SeasonSummary> {
         []);
     const totalMaterialCost = matRow?.total ?? 0;
     const totalLaborCost = (stats?.total_hours ?? 0) * hourlyRate;
-    const totalSpent = (stats?.total_actual_cost ?? 0) + totalMaterialCost + totalLaborCost;
+
+    // Manual expenses
+    const expRow = await queryOne<{ total: number }>(
+        'SELECT COALESCE(SUM(amount), 0) as total FROM expenses',
+        []);
+    const totalExpenses = expRow?.total ?? 0;
+
+    const totalSpent = (stats?.total_actual_cost ?? 0) + totalMaterialCost + totalLaborCost + totalExpenses;
 
     return {
         budget,
@@ -240,6 +248,7 @@ export async function getSeasonSummary(): Promise<SeasonSummary> {
         total_actual_cost: Math.round((stats?.total_actual_cost ?? 0) * 100) / 100,
         total_material_cost: Math.round(totalMaterialCost * 100) / 100,
         total_labor_cost: Math.round(totalLaborCost * 100) / 100,
+        total_expenses: Math.round(totalExpenses * 100) / 100,
         total_spent: Math.round(totalSpent * 100) / 100,
         remaining: Math.round((budget - totalSpent) * 100) / 100,
         percent_used: budget > 0 ? Math.round((totalSpent / budget) * 10000) / 100 : 0,

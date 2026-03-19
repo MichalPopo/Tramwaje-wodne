@@ -372,3 +372,18 @@ CREATE INDEX IF NOT EXISTS idx_tank_logs_tank ON tank_logs(tank_id);
 
 CREATE TRIGGER IF NOT EXISTS update_tanks_timestamp AFTER UPDATE ON tanks
 BEGIN UPDATE tanks SET updated_at = datetime('now') WHERE id = NEW.id; END;
+
+-- WYDATKI (ręczne koszty)
+CREATE TABLE IF NOT EXISTS expenses (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    description TEXT NOT NULL,
+    amount      REAL NOT NULL,
+    category    TEXT NOT NULL DEFAULT 'inne',
+    ship_id     INTEGER REFERENCES ships(id),
+    date        TEXT NOT NULL DEFAULT (date('now')),
+    notes       TEXT,
+    created_by  INTEGER REFERENCES users(id),
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { budgetApi, type SeasonSummary, type ShipCost, type CategoryCost } from '../api';
+import { budgetApi, type SeasonSummary, type ShipCost, type CategoryCost, type Expense } from '../api';
 import './BudgetPage.css';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -41,6 +41,14 @@ export default function BudgetPage() {
     const [editRate, setEditRate] = useState('');
     const [saving, setSaving] = useState(false);
 
+    // Expenses
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [expDesc, setExpDesc] = useState('');
+    const [expAmount, setExpAmount] = useState('');
+    const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0]);
+    const [expNotes, setExpNotes] = useState('');
+    const [showExpForm, setShowExpForm] = useState(false);
+
     // Canvas refs
     const shipChartRef = useRef<HTMLCanvasElement>(null);
     const catChartRef = useRef<HTMLCanvasElement>(null);
@@ -49,14 +57,16 @@ export default function BudgetPage() {
         if (!token) return;
         setLoading(true);
         try {
-            const [s, sc, cc] = await Promise.all([
+            const [s, sc, cc, ex] = await Promise.all([
                 budgetApi.summary(token),
                 budgetApi.byShip(token),
                 budgetApi.byCategory(token),
+                budgetApi.listExpenses(token),
             ]);
             setSummary(s);
             setShipCosts(sc.costs);
             setCatCosts(cc.costs);
+            setExpenses(ex.expenses);
             setEditBudget(String(s.budget));
             setEditRate(String(s.hourly_rate));
         } catch (err) {
@@ -257,6 +267,7 @@ export default function BudgetPage() {
                             <div className="budget-card-breakdown">
                                 <div><span>🔧 Robocizna:</span> <strong>{formatPLN(summary.total_labor_cost)}</strong></div>
                                 <div><span>📦 Materiały:</span> <strong>{formatPLN(summary.total_material_cost)}</strong></div>
+                                <div><span>📝 Wydatki ręczne:</span> <strong>{formatPLN(summary.total_expenses)}</strong></div>
                                 <div><span>📋 Inne koszty:</span> <strong>{formatPLN(summary.total_actual_cost)}</strong></div>
                             </div>
                         </div>
@@ -343,6 +354,92 @@ export default function BudgetPage() {
                                 </tfoot>
                             </table>
                         </div>
+                    </div>
+
+                    {/* Expenses section */}
+                    <div className="budget-table-section">
+                        <div className="budget-section-header">
+                            <h2>📝 Wydatki ręczne</h2>
+                            <button className="btn btn-primary btn-sm" onClick={() => setShowExpForm(!showExpForm)}>
+                                {showExpForm ? 'Anuluj' : '➕ Dodaj wydatek'}
+                            </button>
+                        </div>
+
+                        {showExpForm && (
+                            <div className="budget-expense-form">
+                                <div className="budget-expense-row">
+                                    <input className="input" placeholder="Opis wydatku *" value={expDesc} onChange={e => setExpDesc(e.target.value)} />
+                                    <input className="input budget-exp-amount" type="number" step="0.01" min="0" placeholder="Kwota (zł)" value={expAmount} onChange={e => setExpAmount(e.target.value)} />
+                                    <input className="input budget-exp-date" type="date" value={expDate} onChange={e => setExpDate(e.target.value)} />
+                                </div>
+                                <div className="budget-expense-row">
+                                    <input className="input" placeholder="Notatki (opcjonalnie)" value={expNotes} onChange={e => setExpNotes(e.target.value)} />
+                                    <button className="btn btn-primary" disabled={saving} onClick={async () => {
+                                        if (!token || !expDesc.trim() || !expAmount) return;
+                                        setSaving(true);
+                                        try {
+                                            await budgetApi.createExpense(token, {
+                                                description: expDesc.trim(),
+                                                amount: parseFloat(expAmount),
+                                                date: expDate,
+                                                notes: expNotes.trim() || undefined,
+                                            });
+                                            setExpDesc(''); setExpAmount(''); setExpNotes('');
+                                            setShowExpForm(false);
+                                            loadData();
+                                        } catch { setError('Błąd dodawania wydatku'); }
+                                        finally { setSaving(false); }
+                                    }}>
+                                        {saving ? '⏳' : '💾 Zapisz'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {expenses.length === 0 ? (
+                            <div className="budget-empty">Brak ręcznych wydatków</div>
+                        ) : (
+                            <div className="budget-table-wrapper">
+                                <table className="budget-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Opis</th>
+                                            <th>Kwota</th>
+                                            <th>Notatki</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {expenses.map(exp => (
+                                            <tr key={exp.id}>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{exp.date}</td>
+                                                <td className="budget-table-name">{exp.description}</td>
+                                                <td style={{ fontWeight: 600 }}>{formatPLN(exp.amount)}</td>
+                                                <td style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)' }}>{exp.notes || '—'}</td>
+                                                <td>
+                                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-red)' }}
+                                                        onClick={async () => {
+                                                            if (!token || !confirm('Usunąć wydatek?')) return;
+                                                            await budgetApi.deleteExpense(token, exp.id);
+                                                            loadData();
+                                                        }}>🗑</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td></td>
+                                            <td><strong>Razem</strong></td>
+                                            <td><strong>{formatPLN(expenses.reduce((s, e) => s + e.amount, 0))}</strong></td>
+                                            <td></td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </>
             )}

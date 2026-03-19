@@ -745,6 +745,7 @@ export interface SeasonSummary {
     total_actual_cost: number;
     total_material_cost: number;
     total_labor_cost: number;
+    total_expenses: number;
     total_spent: number;
     remaining: number;
     percent_used: number;
@@ -802,7 +803,34 @@ export const budgetApi = {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
+
+    listExpenses: (token: string) =>
+        request<{ expenses: Expense[] }>('/budget/expenses', { token }),
+
+    createExpense: (token: string, data: { description: string; amount: number; category?: string; ship_id?: number | null; date?: string; notes?: string }) =>
+        request<{ expense: Expense }>('/budget/expenses', {
+            token,
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    deleteExpense: (token: string, id: number) =>
+        request<{ deleted: boolean }>(`/budget/expenses/${id}`, { token, method: 'DELETE' }),
 };
+
+export interface Expense {
+    id: number;
+    description: string;
+    amount: number;
+    category: string;
+    ship_id: number | null;
+    ship_name: string | null;
+    date: string;
+    notes: string | null;
+    created_by: number | null;
+    created_by_name: string | null;
+    created_at: string;
+}
 
 // ===== WATER LEVEL =====
 
