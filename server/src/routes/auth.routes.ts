@@ -215,16 +215,23 @@ router.delete('/users/:id', authMiddleware, roleGuard('admin'), async (req, res)
         return;
     }
 
-    // Remove task assignments
-    await execute('DELETE FROM task_assignments WHERE user_id = ?', [id]);
-    // Remove time logs
-    await execute('UPDATE time_logs SET user_id = NULL WHERE user_id = ?', [id]);
-    // Remove expenses created by
-    await execute('UPDATE expenses SET created_by = NULL WHERE created_by = ?', [id]);
-    // Delete user
-    await execute('DELETE FROM users WHERE id = ?', [id]);
+    try {
+        // NULL out all non-cascade FK references to users
+        await execute('UPDATE tasks SET created_by = NULL WHERE created_by = ?', [id]);
+        await execute('UPDATE attachments SET uploaded_by = NULL WHERE uploaded_by = ?', [id]);
+        await execute('UPDATE inspections SET inspector_id = NULL WHERE inspector_id = ?', [id]);
+        await execute('UPDATE service_logs SET performed_by = NULL WHERE performed_by = ?', [id]);
+        await execute('UPDATE tank_logs SET logged_by = NULL WHERE logged_by = ?', [id]);
+        await execute('UPDATE expenses SET created_by = NULL WHERE created_by = ?', [id]);
+        // CASCADE tables auto-clean: task_assignments, time_logs, notifications
 
-    res.json({ deleted: true });
+        // Delete user
+        await execute('DELETE FROM users WHERE id = ?', [id]);
+        res.json({ deleted: true });
+    } catch (err: any) {
+        console.error('Delete user error:', err);
+        res.status(500).json({ error: err?.message || 'Błąd usuwania użytkownika' });
+    }
 });
 
 export default router;
