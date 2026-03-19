@@ -1,14 +1,15 @@
 /**
  * API client for Tramwaje Wodne server.
- * Connects to the Express backend via WiFi on the local network.
+ * Connects to the Express backend on Render (cloud) by default.
+ * Server URL can be overridden in Settings screen.
  */
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'tw_auth_token';
 const SERVER_KEY = 'tw_server_url';
 
-// Default: local dev server
-let serverUrl = 'http://192.168.0.75:3001';
+// Default: production Render server (cloud)
+let serverUrl = 'https://tramwaje-wodne-api.onrender.com';
 
 export async function getServerUrl(): Promise<string> {
     const stored = await SecureStore.getItemAsync(SERVER_KEY);
