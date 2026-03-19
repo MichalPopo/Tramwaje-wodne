@@ -485,7 +485,11 @@ export async function getTodayTasks() {
          FROM tasks t
          LEFT JOIN ships s ON s.id = t.ship_id
          WHERE t.status IN ('todo', 'in_progress')
-           AND (t.deadline IS NULL OR t.deadline <= ?)
+           AND (
+               t.planned_start = ?
+               OR (t.planned_start IS NULL AND t.status = 'in_progress')
+               OR (t.planned_start IS NULL AND t.deadline IS NOT NULL AND t.deadline <= ?)
+           )
          ORDER BY
             CASE t.priority
                 WHEN 'critical' THEN 0
@@ -494,7 +498,7 @@ export async function getTodayTasks() {
                 WHEN 'low' THEN 3
             END,
             t.created_at DESC`,
-        [today],
+        [today, today],
     );
 
     return rows.map(row => ({
