@@ -123,6 +123,25 @@ export default function InventoryPage() {
         } catch { setError('Błąd zmiany stanu'); }
     };
 
+    const handlePurchased = async (item: ShoppingListItem) => {
+        if (!token) return;
+        const qty = prompt(`Ile kupiono? (${item.unit || 'szt'})`, String(item.to_buy));
+        if (qty === null) return;
+        const amount = parseFloat(qty);
+        if (isNaN(amount) || amount <= 0) {
+            setError('Podaj poprawną ilość');
+            return;
+        }
+        try {
+            // Find inventory item by name and adjust quantity
+            const invItem = items.find(i => i.name === item.name);
+            if (invItem) {
+                await inventoryApi.adjustQuantity(token, invItem.id, amount);
+            }
+            loadData();
+        } catch { setError('Błąd aktualizacji stanu magazynowego'); }
+    };
+
     if (isLoading) {
         return (
             <div className="inventory-page">
@@ -259,8 +278,13 @@ export default function InventoryPage() {
 
                 {activeTab === 'shopping' && (
                     <div className="inv-shopping card">
-                        <h3>🛒 Lista zakupów</h3>
-                        <p className="inv-shopping-subtitle">Zagregowane potrzeby materiałowe z aktywnych zadań</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <div>
+                                <h3>🛒 Lista zakupów</h3>
+                                <p className="inv-shopping-subtitle">Zagregowane potrzeby materiałowe z aktywnych zadań</p>
+                            </div>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('inventory')}>📦 Wróć do magazynu</button>
+                        </div>
                         {shoppingList.length === 0 ? (
                             <p className="inv-empty">Wszystko zakupione! 🎉</p>
                         ) : (
@@ -272,6 +296,7 @@ export default function InventoryPage() {
                                         <th>Na stanie</th>
                                         <th>Do kupienia</th>
                                         <th>Zadania</th>
+                                        <th>Akcje</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -284,6 +309,13 @@ export default function InventoryPage() {
                                                 {item.to_buy}{item.unit ? ` ${item.unit}` : ''}
                                             </td>
                                             <td className="inv-tasks-cell">{item.tasks.join(', ')}</td>
+                                            <td className="inv-actions">
+                                                {item.to_buy > 0 && (
+                                                    <button className="btn btn-primary btn-sm" onClick={() => handlePurchased(item)} title="Oznacz jako kupione i dodaj do magazynu">
+                                                        ✅ Kupiono
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
