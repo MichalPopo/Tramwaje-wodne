@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { inventoryApi, shipsApi, type InventoryItem, type ShoppingListItem, type Ship } from '../api';
@@ -11,6 +11,21 @@ const CATEGORY_LABELS: Record<string, string> = {
     material: '🧱 Materiał',
     part: '⚙️ Część',
 };
+
+const PREDEFINED_LOCATIONS = [
+    'Magazyn główny',
+    'Magazyn narzędzi',
+    'Maszynownia Zefir',
+    'Maszynownia Wiatr',
+    'Pokład Zefir',
+    'Pokład Wiatr',
+    'Sterówka Zefir',
+    'Sterówka Wiatr',
+    'Garaż',
+    'Warsztat',
+    'Biuro',
+    'Stocznia',
+];
 
 export default function InventoryPage() {
     const { user, token, logout } = useAuth();
@@ -64,6 +79,13 @@ export default function InventoryPage() {
     });
 
     const lowStockCount = items.filter(i => i.is_low_stock).length;
+
+    // Unique locations: predefined + from existing items
+    const allLocations = useMemo(() => {
+        const fromItems = items.map(i => i.location).filter(Boolean) as string[];
+        const merged = new Set([...PREDEFINED_LOCATIONS, ...fromItems]);
+        return [...merged].sort((a, b) => a.localeCompare(b, 'pl'));
+    }, [items]);
 
     const openCreate = () => {
         setEditingItem(null);
@@ -361,8 +383,14 @@ export default function InventoryPage() {
                                 </div>
                             </div>
                             <div className="tfm-quick-row">
-                                <input className="tfm-input" placeholder="Lokalizacja" value={form.location}
-                                    onChange={e => setForm({ ...form, location: e.target.value })} />
+                                <div className="tfm-field" style={{ flex: 1 }}>
+                                    <label>Lokalizacja</label>
+                                    <input className="tfm-input" list="location-options" placeholder="Wybierz lub wpisz..." value={form.location}
+                                        onChange={e => setForm({ ...form, location: e.target.value })} />
+                                    <datalist id="location-options">
+                                        {allLocations.map((loc: string) => <option key={loc} value={loc} />)}
+                                    </datalist>
+                                </div>
                                 <select className="tfm-select" value={form.ship_id} onChange={e => setForm({ ...form, ship_id: e.target.value })}>
                                     <option value="">Oba / brak</option>
                                     {ships.map(s => <option key={s.id} value={String(s.id)}>{s.short_name}</option>)}
