@@ -9,8 +9,8 @@
 
 | Parametr | Wartość |
 |----------|---------|
-| **Aktualny etap** | Etap 2 (2.1–2.5 ✅) + Etap 3 Mobile ✅ (3.1–3.7 gotowe) |
-| **Testy** | 240/240 passing (~9s) — 12 plików testowych |
+| **Aktualny etap** | Etap 2 (2.1–2.5 ✅) + Etap 3 Mobile ✅ (3.1–3.7 gotowe) + nowe moduły (engine-hours, tanks, water-level, api-keys, settings) |
+| **Testy** | 12 plików testowych (database, auth.service, auth.routes, auth.middleware, errorHandler, task.routes, inventory, scheduling, supplier, engine-hours, tanks, water-level) |
 | **Serwer działa** | TAK — backend Render (tramwaje-wodne-api.onrender.com), frontend GH Pages, baza Turso |
 | **Mobile** | ✅ Expo SDK 55, standalone APK (embedded JS bundle), offline SQLite, sync WiFi, notifications |
 | **APK build** | ✅ BUILD_APK.bat (one-click: export bundle + Gradle assembleDebug) |
@@ -64,6 +64,11 @@
 | — | Admin task management (mobile) | ✅ | Fix: TaskDetailScreen crash, AdminTasksScreen statuses, AdminDashScreen user filter, navigation |
 | — | APK download (web) | ✅ | DashboardPage: przycisk 📱 APK → GitHub Releases (`/releases/latest`) |
 | — | GitHub Release v1.0.0 | ✅ | `gh release create v1.0.0` z app-debug.apk (166MB) |
+| — | Poziom wody (stacja Tolkmicko) | ✅ | water-level.service.ts, water-level.routes.ts, WaterLevelWidget.tsx/css, water_level_cache table |
+| — | Motogodziny + serwis | ✅ | engine-hours.service.ts, engine-hours.routes.ts, EngineHoursPage.tsx, engine_hours + service_intervals + service_logs tables |
+| — | Zbiorniki paliwa/wody | ✅ | tanks.service.ts, tanks.routes.ts, TanksPage.tsx, tanks + tank_logs tables |
+| — | Klucze API (pool) | ✅ | key-pool.service.ts, api-keys.routes.ts, SettingsPage.tsx (zarządzanie kluczami) |
+| — | Galeria zdjęć | ✅ | PhotoGallery.tsx/css (lightbox, zoom, carousel) |
 
 ---
 
@@ -82,7 +87,7 @@ D:\TramwajeWodne\
 │   ├── .env                       # PORT, JWT_SECRET, GEMINI_API_KEY, WEATHER_LAT/LON
 │   ├── .env.example
 │   └── src\
-│       ├── index.ts               # Express — montuje 12 routerów: auth, task, ai, weather, ships, inventory, attachments, config, certificates, equipment, suppliers, budget
+│       ├── index.ts               # Express — montuje 16 routerów: auth, task, ai, weather, ships, inventory, attachments, config, certificates, equipment, suppliers, budget, water-level, engine-hours, tanks, api-keys
 │       ├── db\
 │       │   ├── database.ts        # Turso/libsql client + conditional seed (only on empty DB)
 │       │   ├── schema.sql         # 28 tabel (users, ships, tasks, task_assignments, task_dependencies, time_logs, attachments, inventory_items, task_materials, ai_conversations, ai_messages, weather_cache, config, certificates, inspection_templates, inspections, equipment, instructions, instruction_steps, suppliers, supplier_inventory, water_level_cache, engine_hours, service_intervals, service_logs, tanks, tank_logs, expenses)
@@ -100,8 +105,13 @@ D:\TramwajeWodne\
 │       │   ├── attachment.routes.ts # POST upload (base64), GET list/detail, DELETE
 │       │   ├── config.routes.ts   # GET/PUT key-value config (np. season_start) — GET zwraca '' dla brakujących kluczy
 │       │   ├── certificate.routes.ts # CRUD certyfikatów, /expiring, /scan (AI Vision), inspekcje
-│       │   └── equipment.routes.ts   # ★ CRUD urządzeń + instrukcji, QR gen, AI format instrukcji
-│       │   └── supplier.routes.ts    # ★ CRUD dostawców, powiązania z magazynem, lista zakupów wg dostawców
+│       │   ├── equipment.routes.ts   # ★ CRUD urządzeń + instrukcji, QR gen, AI format instrukcji
+│       │   ├── supplier.routes.ts    # ★ CRUD dostawców, powiązania z magazynem, lista zakupów wg dostawców
+│       │   ├── budget.routes.ts      # ★ Summary, by-ship, by-category, monthly, task costs, config, expenses CRUD
+│       │   ├── water-level.routes.ts # ★ GET / (stacja Tolkmicko, cache)
+│       │   ├── engine-hours.routes.ts # ★ CRUD motogodzin, interwały serwisowe, alerty, logi serwisów
+│       │   ├── tanks.routes.ts      # ★ CRUD zbiorników, logi tankowania, alerty, statystyki
+│       │   └── api-keys.routes.ts   # ★ CRUD kluczy Gemini API (admin), toggle, clear cooldown
 │       ├── services\
 │       │   ├── auth.service.ts    # bcrypt, JWT
 │       │   ├── task.service.ts    # list, create, update, delete, status, time, splitTask, mergeTasks
@@ -114,6 +124,11 @@ D:\TramwajeWodne\
 │       │   ├── config.service.ts  # key-value config (get/set, season_start, season_budget, hourly_rate)
 │       │   ├── equipment.service.ts # ★ CRUD urządzeń + instrukcji + kroków, QR, AI context builder
 │       │   ├── supplier.service.ts  # ★ CRUD dostawców + powiązania + lista zakupów wg dostawców + AI context
+│       │   ├── budget.service.ts    # ★ 5 agregacji kosztów (task/ship/category/season/monthly), actual_unit_price, total_expenses
+│       │   ├── water-level.service.ts # ★ Stacja hydrologiczna Tolkmicko (imgw fetch + cache)
+│       │   ├── engine-hours.service.ts # ★ Motogodziny urządzeń, interwały serwisowe, alerty zbliżających się serwisów
+│       │   ├── tanks.service.ts     # ★ Zbiorniki paliwa/wody, logi tankowania/zużycia, alerty niskich poziomów
+│       │   ├── key-pool.service.ts  # ★ Gemini API key pool z cooldown rotation
 │       │   └── validation.ts      # Zod schemas (auth + tasks + ai + splitTask); dostawcy mają inline schemas w supplier.routes.ts
 │       ├── types\
 │       │   └── sql.js.d.ts
@@ -126,7 +141,10 @@ D:\TramwajeWodne\
 │           ├── task.routes.test.ts     # 36 testów
 │           ├── inventory.test.ts      # 25 testów
 │           ├── scheduling.test.ts     # 17 testów (DAG, topo sort, cycle-breaking, wouldCreateCycle, CPM, same-day scheduling, API)
-│           └── supplier.test.ts      # 28 testów (CRUD, filtry, powiązania, lista zakupów, AI)
+│           ├── supplier.test.ts      # 28 testów (CRUD, filtry, powiązania, lista zakupów, AI)
+│           ├── engine-hours.test.ts   # ★ testy motogodzin i serwisów
+│           ├── tanks.test.ts         # ★ testy zbiorników i logów
+│           └── water-level.test.ts   # ★ testy poziomu wody
 ├── deploy\
 │   ├── .env.production            # ★ Bezpieczny JWT (64 znaki), GEMINI jako env var
 │   ├── Caddyfile                  # ★ Reverse proxy + auto-SSL + security headers
@@ -139,18 +157,20 @@ D:\TramwajeWodne\
 │   ├── vite.config.ts             # base: /Tramwaje-wodne/, proxy /api → :3001 (dev)
 │   └── src\
 │       ├── index.css              # ★ Design system (dark maritime, 404 lines)
-│       ├── api.ts                 # ★ Typed API client (auth, tasks, ships, weather, ai, inventory, attachments, config, certificates, inspections, equipment, instructions, suppliers, changePassword, deleteUser, budget expenses)
+│       ├── api.ts                 # ★ Typed API client (auth, tasks, ships, weather, ai, inventory, attachments, config, certificates, inspections, equipment, instructions, suppliers, budget, expenses, waterLevel, engineHours, tanks, apiKeys, changePassword, deleteUser)
 │       ├── AuthContext.tsx         # ★ JWT auth + localStorage + auto-validate
-│       ├── App.tsx                # ★ Role-based routing (admin→dash, worker→panel, inventory, certificates, equipment, suppliers, team)
+│       ├── App.tsx                # ★ Role-based routing: 13 tras (login, dashboard, worker, inventory, gantt, certificates, equipment, suppliers, budget, team, engine-hours, tanks, settings)
 │       ├── components\
 │       │   ├── AiChat.tsx/css     # ★ Floating chat panel (Gemini, konwersacje, markdown, SUPPLIER_JSON parser, auto-routing do search grounding)
 │       │   ├── WeatherWidget.tsx/css # ★ 7-dniowa prognoza + okna malowania/spawania
+│       │   ├── WaterLevelWidget.tsx/css # ★ Stacja hydrologiczna Tolkmicko (poziom wody, alerty)
 │       │   ├── ShipDataCards.tsx/css # ★ Rozwijane karty techniczne + edit/add modal (createPortal)
 │       │   ├── TaskFormModal.tsx/css # ★ Quick/full task create+edit modal
+│       │   ├── PhotoGallery.tsx/css  # ★ Galeria zdjęć z lightbox, zoom, nawigacja strzałkami
 │       │   └── VoiceNoteButton.tsx/css # ★ Web Speech API → AI → zadanie (FAB)
 │       └── pages\
 │           ├── LoginPage.tsx/css   # Login UI (anchor logo, gradient)
-│           ├── DashboardPage.tsx/css # Admin: countdown, stats, filtry, ships, weather, ship data, tasks, AI chat
+│           ├── DashboardPage.tsx/css # Admin: countdown, stats, filtry, ships, weather, water level, ship data, tasks, AI chat
 │           ├── GanttPage.tsx/css   # ★ Admin: Gantt timeline, CPM, drag-to-move, sidebar edycji, zależności, kolory per statek, weather overlay, split/merge, timezone fix
 │           ├── WorkerPage.tsx/css  # Worker: grouped tasks, modal+foto, timer, time log, AI chat
 │           ├── InventoryPage.tsx/css # Admin: tabela z filtrami, +/- qty, lista zakupów, CRUD modal
@@ -158,7 +178,10 @@ D:\TramwajeWodne\
 │           ├── EquipmentPage.tsx/css   # ★ Urządzenia + instrukcje, QR kody, AI format, dyktowanie głosowe, ← Dashboard
 │           ├── SuppliersPage.tsx/css   # ★ Dostawcy + powiązania z magazynem + zakupy wg dostawców + Google Maps iframe, ← Dashboard
 │           ├── BudgetPage.tsx/css      # ★ Budżet sezonu (karty, wykresy Canvas, config, ręczne wydatki CRUD)
-│           └── TeamPage.tsx           # ★ Zarządzanie pracownikami (tabela, toggle active, zmiana hasła, usuwanie użytkowników)
+│           ├── EngineHoursPage.tsx     # ★ Motogodziny urządzeń, interwały serwisowe, alerty, logi serwisów
+│           ├── TanksPage.tsx          # ★ Zbiorniki paliwa/wody (poziomy, logi, alerty, statystyki)
+│           ├── SettingsPage.tsx/css    # ★ Ustawienia admin (klucze API, konfiguracja systemu)
+│           └── TeamPage.tsx/css       # ★ Zarządzanie pracownikami (tabela, toggle active, zmiana hasła, usuwanie użytkowników)
 ├── feature_map.md                 # ★ Źródło prawdy — 30 modułów (Etap 1-4) z pełnymi opisami
 ├── TASKS.md                       # ★ Checklist tasków per etap
 ├── BUILD_APK.bat                  # ★ One-click APK build (export + Gradle)
@@ -255,16 +278,39 @@ D:\TramwajeWodne\
 | POST | /api/suppliers/:id/inventory | admin | Powiąż dostawcę z pozycją magazynową |
 | DELETE | /api/suppliers/inventory/:linkId | admin | Usuń powiązanie |
 | GET | /api/suppliers/shopping-list | admin | Lista zakupów wg dostawców |
-| GET | /api/budget/summary | admin | Podsumowanie budżetu (season, incl. total_expenses) |
-| GET | /api/budget/by-task | admin | Koszty per zadanie |
-| GET | /api/budget/by-ship | admin | Koszty per statek |
-| GET | /api/budget/by-category | admin | Koszty per kategoria |
-| GET | /api/budget/monthly | admin | Koszty per miesiąc |
-| GET | /api/budget/config | admin | Konfiguracja budżetu |
-| PUT | /api/budget/config | admin | Aktualizuj konfigurację budżetu |
+| GET | /api/budget/summary | ✅ | Podsumowanie budżetu (season, incl. total_expenses) |
+| GET | /api/budget/by-ship | ✅ | Koszty per statek |
+| GET | /api/budget/by-category | ✅ | Koszty per kategoria |
+| GET | /api/budget/monthly | ✅ | Koszty per miesiąc |
+| GET | /api/budget/tasks/:id | ✅ | Koszty konkretnego zadania |
+| PUT | /api/budget/config | admin | Aktualizuj budżet/stawkę godzinową |
+| PATCH | /api/budget/materials/:id | ✅ | Aktualizuj cenę zakupu materiału |
 | GET | /api/budget/expenses | ✅ | Lista ręcznych wydatków |
 | POST | /api/budget/expenses | admin | Dodaj ręczny wydatek |
 | DELETE | /api/budget/expenses/:id | admin | Usuń wydatek |
+| GET | /api/water-level | ✅ | Poziom wody stacja Tolkmicko |
+| GET | /api/engine-hours | ✅ | Lista urządzeń z motogodzinami |
+| POST | /api/engine-hours | admin | Dodaj urządzenie do śledzenia |
+| PUT | /api/engine-hours/:equipmentId | admin | Edytuj urządzenie |
+| POST | /api/engine-hours/:equipmentId/add | ✅ | Dodaj motogodziny |
+| GET | /api/engine-hours/service-intervals | ✅ | Interwały serwisowe |
+| POST | /api/engine-hours/service-intervals | admin | Dodaj interwał serwisowy |
+| GET | /api/engine-hours/service-alerts | ✅ | Alerty zbliżających się serwisów |
+| GET | /api/engine-hours/service-logs | ✅ | Logi wykonanych serwisów |
+| POST | /api/engine-hours/service-logs | ✅ | Dodaj wpis serwisowy |
+| GET | /api/tanks | ✅ | Lista zbiorników (filtry: ship_id) |
+| GET | /api/tanks/alerts | ✅ | Alerty niskich poziomów |
+| GET | /api/tanks/:id | ✅ | Szczegóły zbiornika |
+| POST | /api/tanks | admin | Dodaj zbiornik |
+| PUT | /api/tanks/:id | admin | Edytuj zbiornik |
+| POST | /api/tanks/:id/log | ✅ | Dodaj log tankowania/zużycia |
+| GET | /api/tanks/:id/logs | ✅ | Logi zbiornika |
+| GET | /api/tanks/:id/stats | ✅ | Statystyki zbiornika |
+| GET | /api/api-keys | admin | Lista kluczy API |
+| POST | /api/api-keys | admin | Dodaj klucz API |
+| DELETE | /api/api-keys/:id | admin | Usuń klucz API |
+| PATCH | /api/api-keys/:id/toggle | admin | Włącz/wyłącz klucz |
+| POST | /api/api-keys/:id/clear-cooldown | admin | Wyczyść cooldown klucza |
 | GET | /api/auth/users | admin | Lista użytkowników |
 | PATCH | /api/auth/users/:id/active | admin | Toggle aktywność użytkownika |
 | PATCH | /api/auth/users/:id/password | ✅ | Zmień hasło (admin→dowolne, user→własne z old_password) |
@@ -408,7 +454,6 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 - Render free tier: serwer usypia po 15 min bezczynności, pierwszy request trwa ~30s
 - APK (166MB) zbyt duży na git repo → dystrybucja przez GitHub Releases (limit 2GB per asset)
 - `gh` CLI zainstalowane (`winget install GitHub.cli`), zalogowane jako MichalPopo
-
 ---
 
 ## Komendy
