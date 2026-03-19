@@ -148,11 +148,20 @@ export interface InventoryItem {
     quantity: number;
     unit: string;
     min_quantity: number;
+    location: string | null;
+    notes: string | null;
 }
 
 export const inventoryApi = {
     list: (token: string) =>
         request<{ items: InventoryItem[] }>('/inventory', { token }),
+
+    create: (token: string, data: { name: string; category: string; unit?: string; quantity?: number; min_quantity?: number; location?: string; notes?: string }) =>
+        request<{ item: InventoryItem }>('/inventory', {
+            method: 'POST',
+            token,
+            body: data,
+        }),
 
     adjustQuantity: (token: string, id: number, quantity_change: number, reason?: string) =>
         request<{ item: InventoryItem }>(`/inventory/${id}/adjust`, {

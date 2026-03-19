@@ -16,6 +16,12 @@ export default function InventoryScreen() {
     const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
     const [adjustQty, setAdjustQty] = useState('');
     const [adjustReason, setAdjustReason] = useState('');
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newCategory, setNewCategory] = useState('material');
+    const [newUnit, setNewUnit] = useState('');
+    const [newQty, setNewQty] = useState('');
+    const [newMinQty, setNewMinQty] = useState('');
 
     const loadItems = useCallback(async () => {
         if (!token) return;
@@ -48,6 +54,28 @@ export default function InventoryScreen() {
             setAdjustQty('');
             setAdjustReason('');
             loadItems();
+        } catch (err: any) {
+            Alert.alert('Błąd', err.message);
+        }
+    };
+
+    const handleAddItem = async () => {
+        if (!token || !newName.trim()) {
+            Alert.alert('Błąd', 'Nazwa jest wymagana');
+            return;
+        }
+        try {
+            await inventoryApi.create(token, {
+                name: newName.trim(),
+                category: newCategory,
+                unit: newUnit.trim() || undefined,
+                quantity: newQty ? parseFloat(newQty) : 0,
+                min_quantity: newMinQty ? parseFloat(newMinQty) : undefined,
+            });
+            setShowAddModal(false);
+            setNewName(''); setNewCategory('material'); setNewUnit(''); setNewQty(''); setNewMinQty('');
+            loadItems();
+            Alert.alert('✅', 'Dodano nową pozycję');
         } catch (err: any) {
             Alert.alert('Błąd', err.message);
         }
@@ -175,6 +203,54 @@ export default function InventoryScreen() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Add item modal */}
+            <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>📦 Nowa pozycja</Text>
+
+                        <TextInput style={styles.input} placeholder="Nazwa *" placeholderTextColor={colors.textDim}
+                            value={newName} onChangeText={setNewName} />
+
+                        <View style={styles.categoryRow}>
+                            {(['material', 'tool', 'part'] as const).map(c => (
+                                <TouchableOpacity key={c}
+                                    style={[styles.categoryChip, newCategory === c && styles.categoryChipActive]}
+                                    onPress={() => setNewCategory(c)}>
+                                    <Text style={[styles.categoryChipText, newCategory === c && styles.categoryChipTextActive]}>
+                                        {c === 'material' ? 'Materiał' : c === 'tool' ? 'Narzędzie' : 'Część'}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Jednostka (szt, m, kg...)" placeholderTextColor={colors.textDim}
+                                value={newUnit} onChangeText={setNewUnit} />
+                            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Ilość" placeholderTextColor={colors.textDim}
+                                value={newQty} onChangeText={setNewQty} keyboardType="numeric" />
+                        </View>
+
+                        <TextInput style={styles.input} placeholder="Min. ilość (opcjonalnie)" placeholderTextColor={colors.textDim}
+                            value={newMinQty} onChangeText={setNewMinQty} keyboardType="numeric" />
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
+                                <Text style={styles.cancelBtnText}>Anuluj</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.addBtn} onPress={handleAddItem}>
+                                <Text style={styles.addBtnText}>Dodaj</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* FAB */}
+            <TouchableOpacity style={styles.fab} onPress={() => setShowAddModal(true)}>
+                <Text style={styles.fabText}>+</Text>
+            </TouchableOpacity>
         </View>
     );
 }
@@ -263,4 +339,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     addBtnText: { color: '#fff', fontWeight: '600' },
+
+    categoryRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    categoryChip: {
+        flex: 1,
+        paddingVertical: spacing.sm,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: 'center',
+    },
+    categoryChipActive: { borderColor: colors.primary, backgroundColor: colors.primary + '22' },
+    categoryChipText: { fontSize: fonts.sm, color: colors.textMuted },
+    categoryChipTextActive: { color: colors.primary, fontWeight: '600' },
+
+    fab: {
+        position: 'absolute',
+        bottom: spacing.xl,
+        right: spacing.xl,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    fabText: { color: '#fff', fontSize: 28, fontWeight: '600', lineHeight: 30 },
 });

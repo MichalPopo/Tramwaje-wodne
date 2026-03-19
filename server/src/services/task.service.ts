@@ -48,6 +48,7 @@ export interface TaskDetail extends Omit<TaskRow, 'weather_dependent' | 'weather
     assignees: { id: number; name: string; email: string }[];
     dependencies: { id: number; title: string; status: string }[];
     time_logs: { id: number; hours: number; note: string | null; logged_at: string; user_name: string }[];
+    materials: { id: number; name: string; quantity_needed: number; unit: string | null; purchased: boolean; current_stock: number | null }[];
     ship_name?: string;
 }
 
@@ -82,6 +83,15 @@ async function toTaskDetail(row: TaskRow): Promise<TaskDetail> {
         ? await queryOne<{ name: string }>('SELECT name FROM ships WHERE id = ?', [row.ship_id])
         : null;
 
+    const materials = await queryAll<{ id: number; name: string; quantity_needed: number; unit: string | null; purchased: number; current_stock: number | null }>(
+        `SELECT tm.id, tm.name, tm.quantity_needed, tm.unit, tm.purchased, i.quantity as current_stock
+         FROM task_materials tm
+         LEFT JOIN inventory_items i ON i.id = tm.inventory_id
+         WHERE tm.task_id = ?
+         ORDER BY tm.id`,
+        [row.id],
+    );
+
     return {
         ...row,
         weather_dependent: Boolean(row.weather_dependent),
@@ -91,6 +101,7 @@ async function toTaskDetail(row: TaskRow): Promise<TaskDetail> {
         assignees,
         dependencies,
         time_logs,
+        materials: materials.map(m => ({ ...m, purchased: Boolean(m.purchased) })),
         ship_name: ship?.name,
     };
 }

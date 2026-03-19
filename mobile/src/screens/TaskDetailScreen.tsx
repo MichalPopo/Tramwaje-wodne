@@ -151,6 +151,29 @@ export default function TaskDetailScreen({ route, navigation }: any) {
                 </View>
             )}
 
+            {/* Materials */}
+            {task.materials?.length > 0 && (
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>🧰 Potrzebne materiały</Text>
+                    {task.materials.map((m: any) => (
+                        <View key={m.id} style={styles.materialRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.materialName}>{m.name}</Text>
+                                <Text style={styles.materialQty}>
+                                    Potrzeba: {m.quantity_needed} {m.unit || ''}
+                                    {m.current_stock !== null && ` · Stan: ${m.current_stock}`}
+                                </Text>
+                            </View>
+                            {m.purchased ? (
+                                <Text style={styles.materialBadgeDone}>✅</Text>
+                            ) : (
+                                <Text style={styles.materialBadgePending}>⏳</Text>
+                            )}
+                        </View>
+                    ))}
+                </View>
+            )}
+
             {/* Assignees */}
             {task.assignees?.length > 0 && (
                 <View style={styles.card}>
@@ -268,6 +291,18 @@ const styles = StyleSheet.create({
     cardTitle: { fontSize: fonts.lg, fontWeight: '700', color: colors.text, marginBottom: spacing.md },
     descriptionText: { fontSize: fonts.md, color: colors.textMuted, lineHeight: 22 },
     assigneeName: { fontSize: fonts.md, color: colors.text, marginBottom: spacing.xs },
+
+    materialRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    materialName: { fontSize: fonts.md, fontWeight: '600', color: colors.text },
+    materialQty: { fontSize: fonts.sm, color: colors.textMuted, marginTop: 2 },
+    materialBadgeDone: { fontSize: 18, marginLeft: spacing.sm },
+    materialBadgePending: { fontSize: 18, marginLeft: spacing.sm },
 
     timeLogRow: {
         flexDirection: 'row',
