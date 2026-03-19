@@ -506,3 +506,71 @@
         align-items: flex-start;
     }
 }
+
+/* Section title row */
+.cert-section-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.cert-section-title-row .cert-section-title {
+    margin-bottom: 0;
+}
+
+/* Template expand */
+.insp-template-card {
+    transition: all 0.2s ease;
+}
+
+.insp-template-card.expanded {
+    border-color: var(--accent-cyan);
+}
+
+.insp-template-card .insp-preview {
+    transition: max-height 0.3s ease;
+}
+
+.insp-template-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Create template form */
+.insp-tpl-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.insp-tpl-item-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.insp-tpl-item-row .input {
+    flex: 1;
+}
+
+.insp-tpl-req-label {
+    display: flex !important;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: var(--font-xs) !important;
+    color: var(--text-muted) !important;
+    text-transform: none !important;
+    white-space: nowrap;
+    cursor: pointer;
+    margin-bottom: 0 !important;
+}
+
+.insp-tpl-req-label input[type="checkbox"] {
+    width: 0.9rem;
+    height: 0.9rem;
+    accent-color: var(--accent-cyan);
+}

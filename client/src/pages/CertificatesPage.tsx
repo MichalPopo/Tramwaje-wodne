@@ -56,6 +56,14 @@ export default function CertificatesPage() {
     const [runningInsp, setRunningInsp] = useState<InspectionTemplate | null>(null);
     const [inspResults, setInspResults] = useState<{ label: string; ok: boolean; note: string }[]>([]);
     const [inspShip, setInspShip] = useState('');
+
+    // Template expand & create
+    const [expandedTemplate, setExpandedTemplate] = useState<number | null>(null);
+    const [showNewTemplate, setShowNewTemplate] = useState(false);
+    const [newTplName, setNewTplName] = useState('');
+    const [newTplShip, setNewTplShip] = useState('');
+    const [newTplItems, setNewTplItems] = useState<{ label: string; required: boolean }[]>([{ label: '', required: true }]);
+    const [savingTemplate, setSavingTemplate] = useState(false);
     const [inspNotes, setInspNotes] = useState('');
 
     const load = async () => {
@@ -224,6 +232,34 @@ export default function CertificatesPage() {
         finally { setSaving(false); }
     };
 
+    // --- Template CRUD ---
+    const saveNewTemplate = async () => {
+        if (!token) return;
+        const name = newTplName.trim();
+        const items = newTplItems.filter(i => i.label.trim());
+        if (!name || items.length === 0) { setError('Nazwa i min. 1 punkt wymagane'); return; }
+        setSavingTemplate(true);
+        try {
+            await inspectionsApi.createTemplate(token, {
+                name,
+                ship_id: newTplShip ? parseInt(newTplShip) : undefined,
+                items: items.map(i => ({ label: i.label.trim(), required: i.required })),
+            });
+            setShowNewTemplate(false);
+            setNewTplName(''); setNewTplShip(''); setNewTplItems([{ label: '', required: true }]);
+            load();
+        } catch { setError('Błąd zapisu szablonu'); }
+        finally { setSavingTemplate(false); }
+    };
+
+    const deleteTemplate = async (id: number) => {
+        if (!token || !confirm('Usunąć szablon inspekcji?')) return;
+        try {
+            await inspectionsApi.deleteTemplate(token, id);
+            load();
+        } catch { setError('Błąd usuwania szablonu'); }
+    };
+
     if (loading) {
         return (
             <div className="page-container">
@@ -319,25 +355,43 @@ export default function CertificatesPage() {
             {tab === 'inspections' && (
                 <div className="cert-content">
                     {/* Templates */}
-                    <h3 className="cert-section-title">📋 Szablony inspekcji</h3>
+                    <div className="cert-section-title-row">
+                        <h3 className="cert-section-title">📋 Szablony inspekcji</h3>
+                        {isAdmin && (
+                            <button className="btn btn-primary btn-sm" onClick={() => setShowNewTemplate(true)}>
+                                ➕ Nowy szablon
+                            </button>
+                        )}
+                    </div>
                     <div className="insp-templates-grid">
-                        {templates.map(t => (
-                            <div key={t.id} className="card insp-template-card">
-                                <div className="insp-template-header">
-                                    <h4>{t.name}</h4>
-                                    <span className="insp-item-count">{t.items.length} punktów</span>
+                        {templates.map(t => {
+                            const isExpanded = expandedTemplate === t.id;
+                            const itemsToShow = isExpanded ? t.items : t.items.slice(0, 3);
+                            return (
+                                <div key={t.id} className={`card insp-template-card ${isExpanded ? 'expanded' : ''}`}>
+                                    <div className="insp-template-header" onClick={() => setExpandedTemplate(isExpanded ? null : t.id)} style={{ cursor: 'pointer' }}>
+                                        <h4>{t.name}</h4>
+                                        <span className="insp-item-count">{t.items.length} punktów {isExpanded ? '▲' : '▼'}</span>
+                                    </div>
+                                    <ul className="insp-preview">
+                                        {itemsToShow.map((item, i) => (
+                                            <li key={i}>{item.required ? '⬜' : '◻️'} {item.label}</li>
+                                        ))}
+                                        {!isExpanded && t.items.length > 3 && <li className="insp-more">+{t.items.length - 3} więcej...</li>}
+                                    </ul>
+                                    <div className="insp-template-actions">
+                                        <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); startInspection(t); }}>
+                                            ▶️ Wykonaj inspekcję
+                                        </button>
+                                        {isAdmin && (
+                                            <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); deleteTemplate(t.id); }} style={{ color: 'var(--accent-red)' }}>
+                                                🗑
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <ul className="insp-preview">
-                                    {t.items.slice(0, 3).map((item, i) => (
-                                        <li key={i}>{item.required ? '⬜' : '◻️'} {item.label}</li>
-                                    ))}
-                                    {t.items.length > 3 && <li className="insp-more">+{t.items.length - 3} więcej...</li>}
-                                </ul>
-                                <button className="btn btn-primary btn-sm" onClick={() => startInspection(t)}>
-                                    ▶️ Wykonaj inspekcję
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Recent inspections */}
@@ -376,6 +430,79 @@ export default function CertificatesPage() {
             )}
 
             {/* === CERT EDIT MODAL === */}
+
+            {/* === NEW TEMPLATE MODAL === */}
+            {showNewTemplate && (
+                <div className="cert-overlay">
+                    <div className="cert-modal card">
+                        <h3>➕ Nowy szablon inspekcji</h3>
+
+                        <div className="cert-form-field cert-span-2">
+                            <label>Nazwa szablonu *</label>
+                            <input className="input" value={newTplName} onChange={e => setNewTplName(e.target.value)}
+                                placeholder="np. Inspekcja przeciwpożarowa" />
+                        </div>
+
+                        <div className="cert-form-field">
+                            <label>Statek (opcjonalnie)</label>
+                            <select className="input" value={newTplShip} onChange={e => setNewTplShip(e.target.value)}>
+                                <option value="">— wszystkie —</option>
+                                {ships.map(s => <option key={s.id} value={String(s.id)}>{s.short_name}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="cert-form-field cert-span-2">
+                            <label>Punkty kontrolne</label>
+                            <div className="insp-tpl-items">
+                                {newTplItems.map((item, i) => (
+                                    <div key={i} className="insp-tpl-item-row">
+                                        <input
+                                            className="input"
+                                            placeholder={`Punkt ${i + 1}...`}
+                                            value={item.label}
+                                            onChange={e => {
+                                                const copy = [...newTplItems];
+                                                copy[i] = { ...copy[i], label: e.target.value };
+                                                setNewTplItems(copy);
+                                            }}
+                                        />
+                                        <label className="insp-tpl-req-label" title="Wymagany">
+                                            <input
+                                                type="checkbox"
+                                                checked={item.required}
+                                                onChange={e => {
+                                                    const copy = [...newTplItems];
+                                                    copy[i] = { ...copy[i], required: e.target.checked };
+                                                    setNewTplItems(copy);
+                                                }}
+                                            />
+                                            Wym.
+                                        </label>
+                                        {newTplItems.length > 1 && (
+                                            <button className="btn btn-ghost btn-sm" type="button" onClick={() => setNewTplItems(prev => prev.filter((_, j) => j !== i))}
+                                                style={{ color: 'var(--accent-red)', padding: '0.25rem' }}>✕</button>
+                                        )}
+                                    </div>
+                                ))}
+                                <button className="btn btn-ghost btn-sm" type="button"
+                                    onClick={() => setNewTplItems(prev => [...prev, { label: '', required: true }])}>
+                                    + Dodaj punkt
+                                </button>
+                            </div>
+                        </div>
+
+                        {error && <div className="cert-form-error">{error}</div>}
+                        <div className="cert-form-actions">
+                            <button className="btn btn-ghost" onClick={() => { setShowNewTemplate(false); setError(''); }} disabled={savingTemplate}>Anuluj</button>
+                            <button className="btn btn-primary" onClick={saveNewTemplate} disabled={savingTemplate}>
+                                {savingTemplate ? '⏳ Zapisuję...' : '💾 Zapisz szablon'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* === CERT EDIT MODAL (existing) === */}
             {editingCert !== null && (
                 <div className="cert-overlay">
                     <div className="cert-modal card">
