@@ -129,8 +129,8 @@ export default function TaskDetailScreen({ route, navigation }: any) {
                 )}
                 <View style={styles.metaItem}>
                     <Text style={styles.metaLabel}>Priorytet</Text>
-                    <Text style={[styles.metaValue, { color: colors[`priority${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}` as keyof typeof colors] || colors.text }]}>
-                        {task.priority}
+                    <Text style={[styles.metaValue, { color: colors[`priority${(task.priority || 'normal').charAt(0).toUpperCase() + (task.priority || 'normal').slice(1)}` as keyof typeof colors] || colors.text }]}>
+                        {task.priority || 'normal'}
                     </Text>
                 </View>
                 {task.estimated_hours && (

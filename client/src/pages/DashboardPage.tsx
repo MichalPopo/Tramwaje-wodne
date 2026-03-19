@@ -44,6 +44,10 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingTask, setEditingTask] = useState<TaskDetail | null>(null);
+    const [viewingTask, setViewingTask] = useState<TaskDetail | null>(null);
+    const [showTimeForm, setShowTimeForm] = useState(false);
+    const [timeHours, setTimeHours] = useState('');
+    const [timeNote, setTimeNote] = useState('');
     const [error, setError] = useState('');
 
     // Season start (from config)
@@ -113,13 +117,55 @@ export default function DashboardPage() {
         }
     };
 
+    const openTaskDetail = async (taskId: number) => {
+        if (!token) return;
+        try {
+            const { task } = await tasksApi.get(token, taskId);
+            setViewingTask(task);
+        } catch {
+            setError('Nie udało się załadować zadania');
+        }
+    };
+
     const openEditTask = async (taskId: number) => {
         if (!token) return;
         try {
             const { task } = await tasksApi.get(token, taskId);
+            setViewingTask(null);
             setEditingTask(task);
         } catch {
             setError('Nie udało się załadować zadania');
+        }
+    };
+
+    const handleStatusChange = async (status: string, blocked_reason?: string) => {
+        if (!token || !viewingTask) return;
+        try {
+            const data = await tasksApi.changeStatus(token, viewingTask.id, status, blocked_reason);
+            setViewingTask(data.task);
+            loadTasks();
+        } catch {
+            setError('Nie udało się zmienić statusu');
+        }
+    };
+
+    const handleTimeLog = async () => {
+        if (!token || !viewingTask) return;
+        const h = parseFloat(timeHours);
+        if (isNaN(h) || h <= 0 || h > 24) {
+            setError('Wpisz poprawną liczbę godzin (0.25–24)');
+            return;
+        }
+        try {
+            await tasksApi.logTime(token, viewingTask.id, h, timeNote || undefined);
+            const data = await tasksApi.get(token, viewingTask.id);
+            setViewingTask(data.task);
+            setShowTimeForm(false);
+            setTimeHours('');
+            setTimeNote('');
+            loadTasks();
+        } catch {
+            setError('Nie udało się zapisać czasu');
         }
     };
 
@@ -211,6 +257,7 @@ export default function DashboardPage() {
                     <Link to="/engine-hours" className="btn btn-ghost btn-sm">⚙️ Motogodziny</Link>
                     <Link to="/tanks" className="btn btn-ghost btn-sm">⛽ Zbiorniki</Link>
                     <Link to="/team" className="btn btn-ghost btn-sm">👥 Zespół</Link>
+                    <a href="https://github.com/MichalPopo/Tramwaje-wodne/releases/latest" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" title="Pobierz aplikację mobilną">📱 APK</a>
                     <Link to="/settings" className="btn btn-ghost btn-sm">⚙️ Ustawienia</Link>
                     <div className="dash-user">
                         <span className="dash-user-name">{user?.name}</span>
@@ -347,7 +394,7 @@ export default function DashboardPage() {
                     ) : (
                         <div className="task-list">
                             {todayTasks.slice(0, 8).map((task, i) => (
-                                <TaskCard key={task.id} task={task} delay={i * 0.05} onClick={() => openEditTask(task.id)} />
+                                <TaskCard key={task.id} task={task} delay={i * 0.05} onClick={() => openTaskDetail(task.id)} />
                             ))}
                         </div>
                     )}
@@ -380,7 +427,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="task-list">
                         {filteredTasks.map((task, i) => (
-                            <TaskCard key={task.id} task={task} delay={i * 0.03} onClick={() => openEditTask(task.id)} />
+                            <TaskCard key={task.id} task={task} delay={i * 0.03} onClick={() => openTaskDetail(task.id)} />
                         ))}
                         {filteredTasks.length === 0 && (
                             <div className="card empty-state"><p>Brak zadań pasujących do filtrów</p></div>
@@ -390,6 +437,79 @@ export default function DashboardPage() {
             </main>
             <AiChat />
             <VoiceNoteButton />
+
+            {/* --- Task Detail Modal (status + time) --- */}
+            {viewingTask && (
+                <div className="modal-backdrop" onClick={() => { setViewingTask(null); setShowTimeForm(false); }}>
+                    <div className="modal animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                        <div className="modal-header">
+                            <div className="modal-title-row">
+                                <span>{CATEGORY_ICONS[viewingTask.category] || '📋'}</span>
+                                <h2>{viewingTask.title}</h2>
+                            </div>
+                            <button className="btn btn-icon btn-ghost" onClick={() => { setViewingTask(null); setShowTimeForm(false); }}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="modal-status-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <span className={`badge badge-${viewingTask.status}`}>{STATUS_LABELS[viewingTask.status]}</span>
+                                <span className="task-priority" style={{ fontSize: '1.2rem' }}>{PRIORITY_ICONS[viewingTask.priority]}</span>
+                            </div>
+                            {viewingTask.description && <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>{viewingTask.description}</p>}
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                {viewingTask.ship_name && <span>🚢 {viewingTask.ship_name}</span>}
+                                {viewingTask.estimated_hours && <span>⏱ {viewingTask.actual_hours}/{viewingTask.estimated_hours}h</span>}
+                                {viewingTask.deadline && <span>📅 {viewingTask.deadline}</span>}
+                                {viewingTask.assignees?.length > 0 && <span>👷 {viewingTask.assignees.map(a => a.name).join(', ')}</span>}
+                            </div>
+
+                            {/* Time logs */}
+                            {viewingTask.time_logs.length > 0 && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <h3 style={{ fontSize: 'var(--font-md)', marginBottom: '0.5rem' }}>⏱ Zalogowany czas</h3>
+                                    {viewingTask.time_logs.map(log => (
+                                        <div key={log.id} style={{ display: 'flex', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: 'var(--font-sm)' }}>
+                                            <span style={{ fontWeight: 700, color: 'var(--primary)', minWidth: 40 }}>{log.hours}h</span>
+                                            <span style={{ flex: 1, color: 'var(--text-muted)' }}>{log.user_name || '—'}</span>
+                                            {log.note && <span style={{ color: 'var(--text-dim)' }}>{log.note}</span>}
+                                            <span style={{ color: 'var(--text-dim)' }}>{new Date(log.logged_at).toLocaleDateString('pl-PL')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Time logging form */}
+                            {showTimeForm && (
+                                <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+                                    <h3 style={{ fontSize: 'var(--font-md)', marginBottom: '0.5rem' }}>⏱ Loguj czas</h3>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        <input className="input" type="number" min="0.25" max="24" step="0.25" placeholder="Godziny" value={timeHours} onChange={e => setTimeHours(e.target.value)} style={{ flex: 1 }} />
+                                        <input className="input" type="text" placeholder="Notatka (opcjonalnie)" value={timeNote} onChange={e => setTimeNote(e.target.value)} style={{ flex: 2 }} />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {[0.5, 1, 2, 4, 8].map(h => (
+                                            <button key={h} className="btn btn-ghost btn-sm" onClick={() => setTimeHours(String(h))} type="button">{h}h</button>
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                        <button className="btn btn-ghost" onClick={() => setShowTimeForm(false)}>Anuluj</button>
+                                        <button className="btn btn-primary" onClick={handleTimeLog} disabled={!timeHours || parseFloat(timeHours) <= 0}>💾 Zapisz</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+                            {!showTimeForm && <button className="btn btn-ghost" onClick={() => setShowTimeForm(true)}>⏱ Loguj czas</button>}
+                            {viewingTask.status === 'todo' && <button className="btn btn-primary" onClick={() => handleStatusChange('in_progress')}>▶️ Rozpocznij</button>}
+                            {viewingTask.status === 'in_progress' && <button className="btn btn-success" onClick={() => handleStatusChange('done')}>✅ Ukończ</button>}
+                            {viewingTask.status === 'in_progress' && <button className="btn btn-warning" onClick={() => { const reason = prompt('Powód wstrzymania:'); if (reason !== null) handleStatusChange('blocked', reason || undefined); }}>🚫 Wstrzymaj</button>}
+                            {viewingTask.status === 'blocked' && <button className="btn btn-primary" onClick={() => handleStatusChange('in_progress')}>▶️ Wznów</button>}
+                            {viewingTask.status === 'done' && <button className="btn btn-ghost" onClick={() => handleStatusChange('todo')}>↩ Cofnij</button>}
+                            <button className="btn btn-ghost" onClick={() => openEditTask(viewingTask.id)}>✏️ Edytuj</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* --- Modals --- */}
             {showCreateModal && (

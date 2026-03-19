@@ -21,7 +21,7 @@
 | **Backend URL** | https://tramwaje-wodne-api.onrender.com |
 | **DB URL** | libsql://tramwaje-wodne-michalpopo.aws-eu-west-1.turso.io |
 | **Firewall** | ✅ Reguła "Tramwaje Wodne API" — port 3001 TCP (incoming, dev only) |
-| **Ostatnia aktualizacja** | 2026-03-18T22:20:00+01:00 |
+| **Ostatnia aktualizacja** | 2026-03-19T17:40:00+01:00 |
 
 ### Feature map — co jest zrobione
 
@@ -56,7 +56,10 @@
 | — | Missing await fix | ✅ | 26 brakujących `await` w 5 route files (api-keys, engine-hours, inventory, supplier, task) |
 | — | Seed idempotency | ✅ | database.ts — seed.sql uruchamia się TYLKO na pustą bazę (sprawdzenie users count) |
 | — | START.bat | ✅ | Double-click start (API + frontend) |
-| — | BUILD_APK.bat | ✅ | One-click: export JS bundle + Gradle assembleDebug → standalone APK |
+| — | BUILD_APK.bat | ✅ | One-click APK build (export + Gradle assembleDebug) |
+| — | Admin task management (web) | ✅ | DashboardPage: TaskDetailModal (status change + time logging) |
+| — | Admin task management (mobile) | ✅ | Fix: TaskDetailScreen crash, AdminTasksScreen statuses, AdminDashScreen user filter, navigation |
+| — | APK download (web) | ✅ | DashboardPage: przycisk 📱 APK → GitHub raw URL |
 
 ---
 
@@ -366,8 +369,10 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 **Do zrobienia (zgłoszone przez użytkownika):**
 - [ ] **Budżet: rozdzielenie szacunków od faktycznych wydatków** — `budget.service.ts` traktuje WSZYSTKIE materiały (w tym AI-generowane szacunki) jako faktyczne wydatki. Fix: liczyć do "Wydano" tylko materiały z `purchased=1`. Dodać UI do oznaczania jako "kupione" + pole na faktyczną cenę. Zaktualizować karty budżetu (szacunki vs wydatki).
 - [ ] **Lista zakupów → zakup → magazyn** — W InventoryPage lista zakupów nie ma opcji oznaczenia pozycji jako kupionej z podaniem ilości, co automatycznie dodałoby stan do magazynu (qty adjust). Potrzebny przycisk "Kupiono" z inputem ilości + auto-update `inventory_items.quantity` i `task_materials.purchased=1`.
-- [ ] **Mobile: Admin nie ma dostępu do logowania czasu** — `AdminTasksScreen` nie nawiguje do `TaskDetailScreen` (brak `onPress` na kartach zadań). Admin nie może logować czasu, zmieniać statusu ani widzieć szczegółów. Fix: dodać nawigację do `AdminTaskDetail` + statusy ujednolicić (`pending`→`todo`, `completed`→`done`).
-- [ ] **Mobile: Admin widzi tylko pracowników, nie siebie** — lista aktywnych użytkowników filtruje po roli `worker`, pomijając adminów. Admin przypisany do zadania nie widzi się na liście.
+- [x] **Mobile: Admin nie ma dostępu do logowania czasu** — `AdminTasksScreen` nie nawiguje do `TaskDetailScreen` (brak `onPress` na kartach zadań). Admin nie może logować czasu, zmieniać statusu ani widzieć szczegółów. ✅ Fix: nawigacja do `AdminTaskDetail` + statusy ujednolicone (`pending`→`todo`, `completed`→`done`) + crash fix `task.priority.charAt(0)` na undefined.
+- [x] **Mobile: Admin widzi tylko pracowników, nie siebie** — lista aktywnych użytkowników filtruje po roli `worker`, pomijając adminów. ✅ Fix: filtr `u.is_active` zamiast `u.role === 'worker'`.
+- [x] **Web: Admin nie może zmieniać statusu ani logować czasu** — DashboardPage miał tylko edycję przez TaskFormModal. ✅ Fix: nowy TaskDetailModal z przyciskami statusu + formularz logowania czasu.
+- [x] **APK download na stronie** — przycisk 📱 APK w headerze DashboardPage → GitHub raw URL.
 
 **Etap 2 (web):** 2.6 Google Calendar Sync (jedyny niezrobiony moduł).
 

@@ -8,10 +8,10 @@ import { getServerUrl } from '../api';
 import { colors, spacing, fonts, radius } from '../theme';
 
 const STATUS_FLOW: Record<string, string[]> = {
-    pending: ['in_progress'],
-    in_progress: ['completed', 'blocked'],
+    todo: ['in_progress'],
+    in_progress: ['done', 'blocked'],
     blocked: ['in_progress'],
-    completed: [],
+    done: [],
 };
 
 export default function AdminTasksScreen({ navigation }: any) {
@@ -87,20 +87,20 @@ export default function AdminTasksScreen({ navigation }: any) {
 
     const statusIcon = (s: string) => {
         switch (s) {
-            case 'pending': return '🔵';
+            case 'todo': return '🔵';
             case 'in_progress': return '🟡';
             case 'blocked': return '🔴';
-            case 'completed': return '🟢';
+            case 'done': return '🟢';
             default: return '⚪';
         }
     };
 
     const filters = [
         { key: 'all', label: 'Wszystkie' },
-        { key: 'pending', label: '🔵 Oczekujące' },
+        { key: 'todo', label: '🔵 Do zrobienia' },
         { key: 'in_progress', label: '🟡 W toku' },
         { key: 'blocked', label: '🔴 Zablokowane' },
-        { key: 'completed', label: '🟢 Gotowe' },
+        { key: 'done', label: '🟢 Gotowe' },
     ];
 
     return (
@@ -129,7 +129,11 @@ export default function AdminTasksScreen({ navigation }: any) {
                 data={tasks}
                 keyExtractor={t => String(t.id)}
                 renderItem={({ item: task }) => (
-                    <View style={styles.taskCard}>
+                    <TouchableOpacity
+                        style={styles.taskCard}
+                        onPress={() => navigation.navigate('AdminTaskDetail', { taskId: task.id })}
+                        activeOpacity={0.7}
+                    >
                         <View style={styles.taskHeader}>
                             <Text style={styles.taskStatusIcon}>{statusIcon(task.status)}</Text>
                             <View style={styles.taskInfo}>
@@ -154,22 +158,25 @@ export default function AdminTasksScreen({ navigation }: any) {
                                         key={nextStatus}
                                         style={[
                                             styles.actionBtn,
-                                            nextStatus === 'completed' && styles.actionBtnGreen,
+                                            nextStatus === 'done' && styles.actionBtnGreen,
                                             nextStatus === 'blocked' && styles.actionBtnRed,
                                             nextStatus === 'in_progress' && styles.actionBtnBlue,
                                         ]}
-                                        onPress={() => confirmStatusChange(task.id, task.title, nextStatus)}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            confirmStatusChange(task.id, task.title, nextStatus);
+                                        }}
                                     >
                                         <Text style={styles.actionBtnText}>
                                             {nextStatus === 'in_progress' && '▶ Rozpocznij'}
-                                            {nextStatus === 'completed' && '✅ Gotowe'}
+                                            {nextStatus === 'done' && '✅ Gotowe'}
                                             {nextStatus === 'blocked' && '🚫 Zablokuj'}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
                         )}
-                    </View>
+                    </TouchableOpacity>
                 )}
                 refreshControl={
                     <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh}

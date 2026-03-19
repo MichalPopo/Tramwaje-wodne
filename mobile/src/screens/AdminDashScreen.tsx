@@ -48,7 +48,7 @@ export default function AdminDashScreen({ navigation }: any) {
             if (tasksRes?.tasks) setRecentTasks(tasksRes.tasks);
             if (usersRes?.users) {
                 setWorkers(usersRes.users
-                    .filter((u: any) => u.role === 'worker' && u.is_active)
+                    .filter((u: any) => u.is_active)
                     .map((u: any) => ({ id: u.id, name: u.name, active_tasks: 0 }))
                 );
             }
@@ -143,7 +143,7 @@ export default function AdminDashScreen({ navigation }: any) {
             )}
 
             {/* Active workers */}
-            <Text style={styles.sectionTitle}>👷 Aktywni pracownicy ({workers.length})</Text>
+            <Text style={styles.sectionTitle}>👷 Aktywny zespół ({workers.length})</Text>
             <View style={styles.workersRow}>
                 {workers.map(w => (
                     <View key={w.id} style={styles.workerChip}>

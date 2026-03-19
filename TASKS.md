@@ -119,6 +119,8 @@
   - [x] Powiadomienia (zgłoszenia, zdjęcia do sprawdzenia)
   - [x] Quick approve/reject
   - [x] AI czat kontekstowy
+  - [x] Admin task detail: zmiana statusu + logowanie czasu (fix crash + statuses)
+  - [x] Admin dashboard: lista wszystkich aktywnych (nie tylko workerów)
 - [x] 3.3 — Synchronizacja WiFi
   - [x] SQLite telefon ↔ SQLite serwer (pull/push sync service)
   - [x] Sync queue (kolejka zmian offline)
@@ -143,8 +145,8 @@
   - [x] React Native + Expo init (TypeScript)
   - [x] React Navigation (stack + bottom tabs)
   - [x] Expo prebuild → Android Studio build + install
-  - [ ] EAS Build → APK (standalone)
-  - [ ] Dystrybucja APK do ręcznej instalacji
+  - [x] EAS Build → APK (standalone) — BUILD_APK.bat
+  - [x] Dystrybucja APK do ręcznej instalacji — przycisk 📱 APK na stronie (GitHub raw URL)
 
 ---
 
