@@ -423,7 +423,7 @@ export default function InventoryPage() {
                                 </div>
                             </div>
                             <div className="tfm-quick-row">
-                                <div className="tfm-field" style={{ flex: 1 }}>
+                                <div className="tfm-field" style={{ flex: 2 }}>
                                     <label>Lokalizacja</label>
                                     <input className="tfm-input" list="location-options" placeholder="Wybierz lub wpisz..." value={form.location}
                                         onChange={e => setForm({ ...form, location: e.target.value })} />
@@ -431,15 +431,20 @@ export default function InventoryPage() {
                                         {allLocations.map((loc: string) => <option key={loc} value={loc} />)}
                                     </datalist>
                                 </div>
-                                <div className="tfm-field" style={{ flex: 0.6 }}>
-                                    <label>Półka / Regał <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(opcjonalnie)</span></label>
-                                    <input className="tfm-input" placeholder="np. A3, R2-P5" value={form.shelf}
+                                <div className="tfm-field" style={{ flex: 1 }}>
+                                    <label>Półka / Regał</label>
+                                    <input className="tfm-input" placeholder="np. A3, R2-P5 (opcjonalne)" value={form.shelf}
                                         onChange={e => setForm({ ...form, shelf: e.target.value })} />
                                 </div>
-                                <select className="tfm-select" value={form.ship_id} onChange={e => setForm({ ...form, ship_id: e.target.value })}>
-                                    <option value="">Oba / brak</option>
-                                    {ships.map(s => <option key={s.id} value={String(s.id)}>{s.short_name}</option>)}
-                                </select>
+                            </div>
+                            <div className="tfm-quick-row">
+                                <div className="tfm-field" style={{ flex: 1 }}>
+                                    <label>Statek</label>
+                                    <select className="tfm-select" value={form.ship_id} onChange={e => setForm({ ...form, ship_id: e.target.value })}>
+                                        <option value="">Oba / brak</option>
+                                        {ships.map(s => <option key={s.id} value={String(s.id)}>{s.short_name}</option>)}
+                                    </select>
+                                </div>
                             </div>
                             <textarea className="tfm-input tfm-textarea" placeholder="Notatki (opcjonalnie)" value={form.notes}
                                 onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
