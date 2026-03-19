@@ -157,7 +157,8 @@ export default function WorkerPage() {
                         <p className="dash-subtitle">{user?.name}</p>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <a href="https://github.com/MichalPopo/Tramwaje-wodne/releases/latest" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">📱 APK</a>
                     <Link to="/inventory" className="btn btn-ghost btn-sm">📦 Magazyn</Link>
                     <Link to="/equipment" className="btn btn-ghost btn-sm">🔧 Sprzęt</Link>
                     <button className="btn btn-ghost btn-sm" onClick={logout}>Wyloguj</button>
