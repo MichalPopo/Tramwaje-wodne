@@ -22,7 +22,7 @@
 | **Backend URL** | https://tramwaje-wodne-api.onrender.com |
 | **DB URL** | libsql://tramwaje-wodne-michalpopo.aws-eu-west-1.turso.io |
 | **Firewall** | ✅ Reguła "Tramwaje Wodne API" — port 3001 TCP (incoming, dev only) |
-| **Ostatnia aktualizacja** | 2026-03-19T17:52:00+01:00 |
+| **Ostatnia aktualizacja** | 2026-03-19T19:16:00+01:00 |
 
 ### Feature map — co jest zrobione
 
@@ -43,14 +43,16 @@
 | 2.1 | Widok Gantt / Timeline | ✅ | scheduling.service.ts, GanttPage.tsx/css, GET /api/tasks/gantt |
 | — | Ship CRUD (bonus) | ✅ | ship.routes.ts (POST/PUT/DELETE), ShipDataCards.tsx (edit/add modal) |
 | 2.2 | Certyfikaty i inspekcje | ✅ | certificate.service.ts, certificate.routes.ts, CertificatesPage.tsx/css, 3 nowe tabele, AI scan zdjęć/PDF |
+| 2.2+ | Inspekcje: klikalne szablony + custom checklists | ✅ | CertificatesPage.tsx (expandedTemplate, showNewTemplate modal, saveNewTemplate, deleteTemplate), CertificatesPage.css (expanded styles, template form) |
 | 2.3 | QR kody + Baza Wiedzy | ✅ | equipment.service.ts, equipment.routes.ts, EquipmentPage.tsx/css, QR gen (qrcode npm), AI instrukcje, kontekst AI |
 | 2.4 | Baza dostawców + optymalizacja zakupów | ✅ | supplier.service.ts, supplier.routes.ts, SuppliersPage.tsx/css, AI kontekst dostawców |
 | 2.4b | Google Maps + AI dostawcy + materiały | ✅ | ai.service.ts (searchSupplier, generateTaskMaterials), AiChat.tsx (SUPPLIER_JSON), TaskFormModal.tsx (krok materiałów), SuppliersPage (Maps) |
 | 2.1+ | Gantt interaktywny | ✅ | GanttPage.tsx (drag-to-move, sidebar edycji, zależności, kolory per statek, weather overlay, split/merge, timezone fix, cycle detection + broken_edges warning) |
 | — | Split/merge zadań | ✅ | task.service.ts (splitTask/mergeTasks), task.routes.ts (POST /split, POST /merge), scheduling.service.ts (weather_dependent+split_group_id w response) |
 | 2.5 | Budżet i koszty | ✅ | budget.service.ts (5 agregacji: task/ship/category/season/monthly + actual_unit_price), budget.routes.ts (7 endpointów), BudgetPage.tsx/css (karty, Canvas wykresy, config editor) |
+| 2.5+ | Budżet: ręczne wydatki | ✅ | expenses table (schema.sql), budget.routes.ts (GET/POST/DELETE /expenses), budget.service.ts (total_expenses w summary), api.ts (Expense type + CRUD), BudgetPage.tsx (formularz + tabela wydatków) |
 | — | Audyt #9 (5 fixów) | ✅ | attachment RBAC, nav flex-wrap, schema renumbered 1-20, worker equipment link, changePassword (service+route+API+TeamPage modal) |
-| — | Zarządzanie pracownikami (TeamPage) | ✅ | TeamPage.tsx (tabela, toggle active, zmiana hasła, link z nav), auth.routes.ts (PATCH /users/:id/password) |
+| — | Zarządzanie pracownikami (TeamPage) | ✅ | TeamPage.tsx (tabela, toggle active, zmiana hasła, **usuwanie użytkowników**, link z nav), auth.routes.ts (PATCH /users/:id/password, **DELETE /users/:id**) |
 | — | PWA manifest | ✅ | manifest.json, icon-512.png, meta tagi w index.html (scope: /Tramwaje-wodne/) |
 | — | Deployment (Render+GH Pages) | ✅ | render.yaml, GH Actions deploy, Turso cloud DB, CORS, SPA 404→index.html trick |
 | — | SPA Routing fix | ✅ | Zamiana `<a href>` → `<Link to>` w 9 plikach Page (21 linków), basename `/Tramwaje-wodne/` |
@@ -83,13 +85,13 @@ D:\TramwajeWodne\
 │       ├── index.ts               # Express — montuje 12 routerów: auth, task, ai, weather, ships, inventory, attachments, config, certificates, equipment, suppliers, budget
 │       ├── db\
 │       │   ├── database.ts        # Turso/libsql client + conditional seed (only on empty DB)
-│       │   ├── schema.sql         # 21 tabel (users, ships, tasks, task_assignments, task_dependencies, time_logs, attachments, inventory_items, task_materials, ai_conversations, ai_messages, weather_cache, config, certificates, inspection_templates, inspections, equipment, instructions, instruction_steps, suppliers, supplier_inventory)
+│       │   ├── schema.sql         # 28 tabel (users, ships, tasks, task_assignments, task_dependencies, time_logs, attachments, inventory_items, task_materials, ai_conversations, ai_messages, weather_cache, config, certificates, inspection_templates, inspections, equipment, instructions, instruction_steps, suppliers, supplier_inventory, water_level_cache, engine_hours, service_intervals, service_logs, tanks, tank_logs, expenses)
 │       │   └── seed.sql           # 2 statki, 9 zadań, 2 użytkowników, 5 narzędzi, 4 certyfikaty, 2 szablony inspekcji, 5 urządzeń, 1 instrukcja, 4 dostawców
 │       ├── middleware\
 │       │   ├── errorHandler.ts    # centralized errors
 │       │   └── auth.ts            # authMiddleware + roleGuard
 │       ├── routes\
-│       │   ├── auth.routes.ts     # POST login, register; GET me, GET users, PATCH users/:id/active, PATCH users/:id/password
+│       │   ├── auth.routes.ts     # POST login, register; GET me, GET users, PATCH users/:id/active, PATCH users/:id/password, DELETE users/:id
 │       │   ├── task.routes.ts     # 11 endpointów CRUD+status+time+my+today+split+merge
 │       │   ├── ai.routes.ts       # POST chat, POST search-supplier (Google Search grounding); GET conversations, messages; DELETE conv
 │       │   ├── weather.routes.ts  # GET forecast (Open-Meteo + SQLite cache 30min)
@@ -137,7 +139,7 @@ D:\TramwajeWodne\
 │   ├── vite.config.ts             # base: /Tramwaje-wodne/, proxy /api → :3001 (dev)
 │   └── src\
 │       ├── index.css              # ★ Design system (dark maritime, 404 lines)
-│       ├── api.ts                 # ★ Typed API client (auth, tasks, ships, weather, ai, inventory, attachments, config, certificates, inspections, equipment, instructions, suppliers, changePassword)
+│       ├── api.ts                 # ★ Typed API client (auth, tasks, ships, weather, ai, inventory, attachments, config, certificates, inspections, equipment, instructions, suppliers, changePassword, deleteUser, budget expenses)
 │       ├── AuthContext.tsx         # ★ JWT auth + localStorage + auto-validate
 │       ├── App.tsx                # ★ Role-based routing (admin→dash, worker→panel, inventory, certificates, equipment, suppliers, team)
 │       ├── components\
@@ -152,10 +154,11 @@ D:\TramwajeWodne\
 │           ├── GanttPage.tsx/css   # ★ Admin: Gantt timeline, CPM, drag-to-move, sidebar edycji, zależności, kolory per statek, weather overlay, split/merge, timezone fix
 │           ├── WorkerPage.tsx/css  # Worker: grouped tasks, modal+foto, timer, time log, AI chat
 │           ├── InventoryPage.tsx/css # Admin: tabela z filtrami, +/- qty, lista zakupów, CRUD modal
-│           ├── CertificatesPage.tsx/css # ★ Certyfikaty tabela+badge+alerty, inspekcje, AI scan, ← Dashboard
+│           ├── CertificatesPage.tsx/css # ★ Certyfikaty tabela+badge+alerty, inspekcje (klikalne szablony, custom checklists), AI scan, ← Dashboard
 │           ├── EquipmentPage.tsx/css   # ★ Urządzenia + instrukcje, QR kody, AI format, dyktowanie głosowe, ← Dashboard
 │           ├── SuppliersPage.tsx/css   # ★ Dostawcy + powiązania z magazynem + zakupy wg dostawców + Google Maps iframe, ← Dashboard
-│           └── TeamPage.tsx           # ★ Zarządzanie pracownikami (tabela, toggle active, zmiana hasła)
+│           ├── BudgetPage.tsx/css      # ★ Budżet sezonu (karty, wykresy Canvas, config, ręczne wydatki CRUD)
+│           └── TeamPage.tsx           # ★ Zarządzanie pracownikami (tabela, toggle active, zmiana hasła, usuwanie użytkowników)
 ├── feature_map.md                 # ★ Źródło prawdy — 30 modułów (Etap 1-4) z pełnymi opisami
 ├── TASKS.md                       # ★ Checklist tasków per etap
 ├── BUILD_APK.bat                  # ★ One-click APK build (export + Gradle)
@@ -252,16 +255,20 @@ D:\TramwajeWodne\
 | POST | /api/suppliers/:id/inventory | admin | Powiąż dostawcę z pozycją magazynową |
 | DELETE | /api/suppliers/inventory/:linkId | admin | Usuń powiązanie |
 | GET | /api/suppliers/shopping-list | admin | Lista zakupów wg dostawców |
-| GET | /api/budget/summary | admin | Podsumowanie budżetu (season) |
+| GET | /api/budget/summary | admin | Podsumowanie budżetu (season, incl. total_expenses) |
 | GET | /api/budget/by-task | admin | Koszty per zadanie |
 | GET | /api/budget/by-ship | admin | Koszty per statek |
 | GET | /api/budget/by-category | admin | Koszty per kategoria |
 | GET | /api/budget/monthly | admin | Koszty per miesiąc |
 | GET | /api/budget/config | admin | Konfiguracja budżetu |
 | PUT | /api/budget/config | admin | Aktualizuj konfigurację budżetu |
+| GET | /api/budget/expenses | ✅ | Lista ręcznych wydatków |
+| POST | /api/budget/expenses | admin | Dodaj ręczny wydatek |
+| DELETE | /api/budget/expenses/:id | admin | Usuń wydatek |
 | GET | /api/auth/users | admin | Lista użytkowników |
 | PATCH | /api/auth/users/:id/active | admin | Toggle aktywność użytkownika |
 | PATCH | /api/auth/users/:id/password | ✅ | Zmień hasło (admin→dowolne, user→własne z old_password) |
+| DELETE | /api/auth/users/:id | admin | Usuń użytkownika (czyści FK: task_assignments, attachments, inspections, service_logs, tank_logs, expenses) |
 
 ---
 
