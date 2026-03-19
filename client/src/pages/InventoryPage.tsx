@@ -57,7 +57,7 @@ export default function InventoryPage() {
     // Form
     const [form, setForm] = useState({
         name: '', category: 'material', unit: '', quantity: '0',
-        min_quantity: '', location: '', ship_id: '', notes: '',
+        min_quantity: '', location: '', shelf: '', ship_id: '', notes: '',
     });
 
     const loadData = useCallback(() => {
@@ -116,19 +116,23 @@ export default function InventoryPage() {
 
     const openCreate = () => {
         setEditingItem(null);
-        setForm({ name: '', category: 'material', unit: '', quantity: '0', min_quantity: '', location: '', ship_id: '', notes: '' });
+        setForm({ name: '', category: 'material', unit: '', quantity: '0', min_quantity: '', location: '', shelf: '', ship_id: '', notes: '' });
         setShowModal(true);
     };
 
     const openEdit = (item: InventoryItem) => {
         setEditingItem(item);
+        const [loc, shelf] = (item.location || '').includes(' / ')
+            ? (item.location || '').split(' / ', 2)
+            : [item.location || '', ''];
         setForm({
             name: item.name,
             category: item.category,
             unit: item.unit || '',
             quantity: item.quantity.toString(),
             min_quantity: item.min_quantity?.toString() || '',
-            location: item.location || '',
+            location: loc,
+            shelf: shelf,
             ship_id: item.ship_id?.toString() || '',
             notes: item.notes || '',
         });
@@ -146,7 +150,11 @@ export default function InventoryPage() {
             if (form.unit) data.unit = form.unit;
             if (form.quantity) data.quantity = parseFloat(form.quantity);
             if (form.min_quantity) data.min_quantity = parseFloat(form.min_quantity);
-            if (form.location) data.location = form.location;
+            if (form.location) {
+                data.location = form.shelf.trim()
+                    ? `${form.location.trim()} / ${form.shelf.trim()}`
+                    : form.location.trim();
+            }
             if (form.ship_id) data.ship_id = parseInt(form.ship_id);
             if (form.notes) data.notes = form.notes;
 
@@ -422,6 +430,11 @@ export default function InventoryPage() {
                                     <datalist id="location-options">
                                         {allLocations.map((loc: string) => <option key={loc} value={loc} />)}
                                     </datalist>
+                                </div>
+                                <div className="tfm-field" style={{ flex: 0.6 }}>
+                                    <label>Półka / Regał <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(opcjonalnie)</span></label>
+                                    <input className="tfm-input" placeholder="np. A3, R2-P5" value={form.shelf}
+                                        onChange={e => setForm({ ...form, shelf: e.target.value })} />
                                 </div>
                                 <select className="tfm-select" value={form.ship_id} onChange={e => setForm({ ...form, ship_id: e.target.value })}>
                                     <option value="">Oba / brak</option>
