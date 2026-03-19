@@ -82,6 +82,9 @@ export default function TaskFormModal({ onClose, onSave, onDelete, initialData, 
     const [loadingMaterials, setLoadingMaterials] = useState(false);
     const [createdTaskId, setCreatedTaskId] = useState<number | null>(null);
     const [savingMaterials, setSavingMaterials] = useState(false);
+    const [newMatName, setNewMatName] = useState('');
+    const [newMatQty, setNewMatQty] = useState('');
+    const [newMatUnit, setNewMatUnit] = useState('szt');
 
     useEffect(() => {
         if (!token) return;
@@ -187,6 +190,24 @@ export default function TaskFormModal({ onClose, onSave, onDelete, initialData, 
         setMaterials(prev => prev.map((m, i) => i === idx ? { ...m, selected: !m.selected } : m));
     };
 
+    const addCustomMaterial = () => {
+        const name = newMatName.trim();
+        if (!name) return;
+        const qty = parseFloat(newMatQty) || 1;
+        setMaterials(prev => [...prev, {
+            name,
+            quantity: qty,
+            unit: newMatUnit.trim() || 'szt',
+            inventory_id: null,
+            in_stock: 0,
+            to_buy: qty,
+            selected: true,
+        }]);
+        setNewMatName('');
+        setNewMatQty('');
+        setNewMatUnit('szt');
+    };
+
     const toggleAssignee = (userId: number) => {
         setForm(prev => ({
             ...prev,
@@ -219,7 +240,17 @@ export default function TaskFormModal({ onClose, onSave, onDelete, initialData, 
                         </div>
                     ) : materials.length === 0 ? (
                         <div className="tfm-materials-empty">
-                            <p>AI nie wygenerowało listy materiałów. Możesz dodać je ręcznie później.</p>
+                            <p>AI nie wygenerowało listy materiałów. Dodaj ręcznie:</p>
+                            <div className="tfm-add-material-row">
+                                <input className="tfm-input" type="text" placeholder="Nazwa materiału..."
+                                    value={newMatName} onChange={e => setNewMatName(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomMaterial())} />
+                                <input className="tfm-input tfm-add-qty" type="number" min="0.1" step="0.1" placeholder="Ile"
+                                    value={newMatQty} onChange={e => setNewMatQty(e.target.value)} />
+                                <input className="tfm-input tfm-add-unit" type="text" placeholder="j."
+                                    value={newMatUnit} onChange={e => setNewMatUnit(e.target.value)} />
+                                <button type="button" className="btn btn-sm btn-primary" onClick={addCustomMaterial}>+ Dodaj</button>
+                            </div>
                         </div>
                     ) : (
                         <>
@@ -243,6 +274,37 @@ export default function TaskFormModal({ onClose, onSave, onDelete, initialData, 
                                         )}
                                     </label>
                                 ))}
+                            </div>
+
+                            {/* Add custom material */}
+                            <div className="tfm-add-material-row">
+                                <input
+                                    className="tfm-input"
+                                    type="text"
+                                    placeholder="Nazwa materiału..."
+                                    value={newMatName}
+                                    onChange={e => setNewMatName(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomMaterial())}
+                                />
+                                <input
+                                    className="tfm-input tfm-add-qty"
+                                    type="number"
+                                    min="0.1"
+                                    step="0.1"
+                                    placeholder="Ile"
+                                    value={newMatQty}
+                                    onChange={e => setNewMatQty(e.target.value)}
+                                />
+                                <input
+                                    className="tfm-input tfm-add-unit"
+                                    type="text"
+                                    placeholder="j."
+                                    value={newMatUnit}
+                                    onChange={e => setNewMatUnit(e.target.value)}
+                                />
+                                <button type="button" className="btn btn-sm btn-primary" onClick={addCustomMaterial}>
+                                    + Dodaj
+                                </button>
                             </div>
 
                             {shopping.length > 0 && (
