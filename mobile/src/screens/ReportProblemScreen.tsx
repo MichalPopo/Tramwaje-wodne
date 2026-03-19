@@ -82,9 +82,8 @@ export default function ReportProblemScreen({ navigation, route }: Props) {
                     body: JSON.stringify({
                         title: `🚨 ${title.trim()}`,
                         description: `**Zgłoszenie problemu**\n\n${description.trim()}${taskId ? `\n\nDotyczy zadania #${taskId}` : ''}`,
-                        priority,
-                        category: 'naprawa',
-                        status: 'pending',
+                        priority: priority === 'medium' ? 'normal' : priority,
+                        category: 'inne',
                     }),
                 });
 
@@ -105,9 +104,8 @@ export default function ReportProblemScreen({ navigation, route }: Props) {
                     {
                         title: `🚨 ${title.trim()}`,
                         description: `**Zgłoszenie problemu**\n\n${description.trim()}`,
-                        priority,
-                        category: 'naprawa',
-                        status: 'pending',
+                        priority: priority === 'medium' ? 'normal' : priority,
+                        category: 'inne',
                     },
                 );
 
