@@ -218,6 +218,8 @@ export default function DashboardPage() {
     // Filtered tasks
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
+            // When no status filter is active, hide done tasks (they have their own page)
+            if (!filterStatus && t.status === 'done') return false;
             if (filterStatus && t.status !== filterStatus) return false;
             if (filterCategory && t.category !== filterCategory) return false;
             if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
@@ -249,6 +251,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="dash-header-right">
                     <Link to="/gantt" className="btn btn-ghost btn-sm">📊 Gantt</Link>
+                    <Link to="/completed" className="btn btn-ghost btn-sm">✅ Zakończone</Link>
                     <Link to="/certificates" className="btn btn-ghost btn-sm">📜 Certyfikaty</Link>
                     <Link to="/equipment" className="btn btn-ghost btn-sm">🔧 Sprzęt</Link>
                     <Link to="/inventory" className="btn btn-ghost btn-sm">📦 Magazyn</Link>
@@ -416,7 +419,6 @@ export default function DashboardPage() {
                             <option value="todo">Do zrobienia</option>
                             <option value="in_progress">W toku</option>
                             <option value="blocked">Wstrzymane</option>
-                            <option value="done">Ukończone</option>
                         </select>
                         <select className="inv-filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                             <option value="">Wszystkie kategorie</option>

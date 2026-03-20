@@ -23,8 +23,8 @@ describe('Scheduling Engine — Algorithms', () => {
 
     // --- buildDAG ---
     describe('buildDAG', () => {
-        it('should build correct adjacency lists', () => {
-            const dag = buildDAG(
+        it('should build correct adjacency lists', async () => {
+            const dag = await buildDAG(
                 [1, 2, 3],
                 [
                     { task_id: 2, depends_on_id: 1 }, // 1 → 2
@@ -41,8 +41,8 @@ describe('Scheduling Engine — Algorithms', () => {
             expect(dag.predecessors.get(3)).toEqual([2]);
         });
 
-        it('should ignore deps for nodes not in the task set', () => {
-            const dag = buildDAG(
+        it('should ignore deps for nodes not in the task set', async () => {
+            const dag = await buildDAG(
                 [1, 2],
                 [
                     { task_id: 2, depends_on_id: 1 },
@@ -57,32 +57,32 @@ describe('Scheduling Engine — Algorithms', () => {
 
     // --- topologicalSort ---
     describe('topologicalSort', () => {
-        it('should return correct order for linear chain', () => {
-            const dag = buildDAG([1, 2, 3], [
+        it('should return correct order for linear chain', async () => {
+            const dag = await buildDAG([1, 2, 3], [
                 { task_id: 2, depends_on_id: 1 },
                 { task_id: 3, depends_on_id: 2 },
             ]);
 
-            const { sorted } = topologicalSort(dag);
+            const { sorted } = await topologicalSort(dag);
             expect(sorted).toEqual([1, 2, 3]);
         });
 
-        it('should handle independent nodes (no deps)', () => {
-            const dag = buildDAG([1, 2, 3], []);
-            const { sorted } = topologicalSort(dag);
+        it('should handle independent nodes (no deps)', async () => {
+            const dag = await buildDAG([1, 2, 3], []);
+            const { sorted } = await topologicalSort(dag);
             // All start at same time, sorted by ID
             expect(sorted).toEqual([1, 2, 3]);
         });
 
-        it('should handle diamond dependency (A→B, A→C, B→D, C→D)', () => {
-            const dag = buildDAG([1, 2, 3, 4], [
+        it('should handle diamond dependency (A→B, A→C, B→D, C→D)', async () => {
+            const dag = await buildDAG([1, 2, 3, 4], [
                 { task_id: 2, depends_on_id: 1 },
                 { task_id: 3, depends_on_id: 1 },
                 { task_id: 4, depends_on_id: 2 },
                 { task_id: 4, depends_on_id: 3 },
             ]);
 
-            const { sorted } = topologicalSort(dag);
+            const { sorted } = await topologicalSort(dag);
             // 1 must come first, 4 must come last
             expect(sorted[0]).toBe(1);
             expect(sorted[sorted.length - 1]).toBe(4);
@@ -93,14 +93,14 @@ describe('Scheduling Engine — Algorithms', () => {
             expect(sorted.indexOf(3)).toBeLessThan(sorted.indexOf(4));
         });
 
-        it('should gracefully handle cycles by breaking edges', () => {
-            const dag = buildDAG([1, 2, 3], [
+        it('should gracefully handle cycles by breaking edges', async () => {
+            const dag = await buildDAG([1, 2, 3], [
                 { task_id: 2, depends_on_id: 1 },
                 { task_id: 3, depends_on_id: 2 },
                 { task_id: 1, depends_on_id: 3 }, // Creates cycle: 1→2→3→1
             ]);
 
-            const result = topologicalSort(dag);
+            const result = await topologicalSort(dag);
             // Should return all 3 nodes sorted (cycle was broken)
             expect(result.sorted.length).toBe(3);
             // Should report at least one broken edge
@@ -130,17 +130,17 @@ describe('Scheduling Engine — Algorithms', () => {
 
     // --- resourceConstrainedSchedule ---
     describe('resourceConstrainedSchedule', () => {
-        it('should compute correct schedule for linear chain', () => {
+        it('should compute correct schedule for linear chain', async () => {
             // 1(8h) → 2(16h) → 3(8h), 100 workers (effectively unlimited)
-            const dag = buildDAG([1, 2, 3], [
+            const dag = await buildDAG([1, 2, 3], [
                 { task_id: 2, depends_on_id: 1 },
                 { task_id: 3, depends_on_id: 2 },
             ]);
-            const { sorted: topoOrder } = topologicalSort(dag);
+            const { sorted: topoOrder } = await topologicalSort(dag);
             const durations = new Map([[1, 8], [2, 16], [3, 8]]);
             const priorities = new Map([[1, 'normal'], [2, 'normal'], [3, 'normal']]);
 
-            const cpm = resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 100);
+            const cpm = await resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 100);
 
             // Forward pass — chain tasks follow each other
             expect(cpm.get(1)!.early_start).toBe(0);
@@ -156,19 +156,19 @@ describe('Scheduling Engine — Algorithms', () => {
             expect(cpm.get(3)!.is_critical).toBe(true);
         });
 
-        it('should compute correct schedule with diamond (sufficient resources)', () => {
+        it('should compute correct schedule with diamond (sufficient resources)', async () => {
             // 100 workers — parallel paths work like classic CPM
-            const dag = buildDAG([1, 2, 3, 4], [
+            const dag = await buildDAG([1, 2, 3, 4], [
                 { task_id: 2, depends_on_id: 1 },
                 { task_id: 3, depends_on_id: 1 },
                 { task_id: 4, depends_on_id: 2 },
                 { task_id: 4, depends_on_id: 3 },
             ]);
-            const { sorted: topoOrder } = topologicalSort(dag);
+            const { sorted: topoOrder } = await topologicalSort(dag);
             const durations = new Map([[1, 8], [2, 16], [3, 4], [4, 8]]);
             const priorities = new Map([[1, 'normal'], [2, 'normal'], [3, 'normal'], [4, 'normal']]);
 
-            const cpm = resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 100);
+            const cpm = await resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 100);
 
             // Task 4 should start after longest predecessor path (task 2)
             expect(cpm.get(4)!.early_start).toBe(24);
@@ -180,14 +180,14 @@ describe('Scheduling Engine — Algorithms', () => {
             expect(cpm.get(4)!.is_critical).toBe(true);
         });
 
-        it('should spread independent tasks across days with limited resources', () => {
+        it('should spread independent tasks across days with limited resources', async () => {
             // 1 worker, 8h/day. Three 8h tasks = 3 days
-            const dag = buildDAG([1, 2, 3], []);
-            const { sorted: topoOrder } = topologicalSort(dag);
+            const dag = await buildDAG([1, 2, 3], []);
+            const { sorted: topoOrder } = await topologicalSort(dag);
             const durations = new Map([[1, 8], [2, 8], [3, 8]]);
             const priorities = new Map([[1, 'normal'], [2, 'normal'], [3, 'normal']]);
 
-            const cpm = resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 1);
+            const cpm = await resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 1);
 
             // With 1 worker, tasks should be sequential across days
             expect(cpm.get(1)!.early_start).toBe(0);
@@ -195,29 +195,29 @@ describe('Scheduling Engine — Algorithms', () => {
             expect(cpm.get(3)!.early_start).toBe(16); // day after
         });
 
-        it('should allow two short tasks on same day for same person (4h + 3h ≤ 8h)', () => {
+        it('should allow two short tasks on same day for same person (4h + 3h ≤ 8h)', async () => {
             // 1 person assigned to two short tasks — should fit on same day
-            const dag = buildDAG([1, 2], []);
-            const { sorted: topoOrder } = topologicalSort(dag);
+            const dag = await buildDAG([1, 2], []);
+            const { sorted: topoOrder } = await topologicalSort(dag);
             const durations = new Map([[1, 4], [2, 3]]); // 4h + 3h = 7h < 8h
             const priorities = new Map([[1, 'normal'], [2, 'normal']]);
             // Both assigned to person 100
             const taskAssignees = new Map([[1, [100]], [2, [100]]]);
 
-            const cpm = resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 4, taskAssignees);
+            const cpm = await resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 4, taskAssignees);
 
             // Both should start on day 0 (hour 0) since 4+3=7 ≤ 8
             expect(cpm.get(1)!.early_start).toBe(0);
             expect(cpm.get(2)!.early_start).toBe(0);
         });
 
-        it('should use default duration of 8h for missing values', () => {
-            const dag = buildDAG([1], []);
-            const { sorted: topoOrder } = topologicalSort(dag);
+        it('should use default duration of 8h for missing values', async () => {
+            const dag = await buildDAG([1], []);
+            const { sorted: topoOrder } = await topologicalSort(dag);
             const durations = new Map<number, number>(); // empty — should default to 8
             const priorities = new Map([[1, 'normal']]);
 
-            const cpm = resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 1);
+            const cpm = await resourceConstrainedSchedule(dag, topoOrder, durations, priorities, 1);
 
             expect(cpm.get(1)!.duration).toBe(8);
             expect(cpm.get(1)!.early_finish).toBe(8);

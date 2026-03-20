@@ -22,7 +22,7 @@
 | **Backend URL** | https://tramwaje-wodne-api.onrender.com |
 | **DB URL** | libsql://tramwaje-wodne-michalpopo.aws-eu-west-1.turso.io |
 | **Firewall** | ✅ Reguła "Tramwaje Wodne API" — port 3001 TCP (incoming, dev only) |
-| **Ostatnia aktualizacja** | 2026-03-19T19:16:00+01:00 |
+| **Ostatnia aktualizacja** | 2026-03-20T11:00:00+01:00 |
 
 ### Feature map — co jest zrobione
 
@@ -48,6 +48,7 @@
 | 2.4 | Baza dostawców + optymalizacja zakupów | ✅ | supplier.service.ts, supplier.routes.ts, SuppliersPage.tsx/css, AI kontekst dostawców |
 | 2.4b | Google Maps + AI dostawcy + materiały | ✅ | ai.service.ts (searchSupplier, generateTaskMaterials), AiChat.tsx (SUPPLIER_JSON), TaskFormModal.tsx (krok materiałów), SuppliersPage (Maps) |
 | 2.1+ | Gantt interaktywny | ✅ | GanttPage.tsx (drag-to-move, sidebar edycji, zależności, kolory per statek, weather overlay, split/merge, timezone fix, cycle detection + broken_edges warning) |
+| 2.1+ | Gantt auto-pin + archiwum | ✅ | scheduling.service.ts (auto-pin planned_start, exclude done, zero-duration guard), CompletedTasksPage.tsx/css, DashboardPage (ukrycie done) |
 | — | Split/merge zadań | ✅ | task.service.ts (splitTask/mergeTasks), task.routes.ts (POST /split, POST /merge), scheduling.service.ts (weather_dependent+split_group_id w response) |
 | 2.5 | Budżet i koszty | ✅ | budget.service.ts (5 agregacji: task/ship/category/season/monthly + actual_unit_price), budget.routes.ts (7 endpointów), BudgetPage.tsx/css (karty, Canvas wykresy, config editor) |
 | 2.5+ | Budżet: ręczne wydatki | ✅ | expenses table (schema.sql), budget.routes.ts (GET/POST/DELETE /expenses), budget.service.ts (total_expenses w summary), api.ts (Expense type + CRUD), BudgetPage.tsx (formularz + tabela wydatków) |
@@ -454,6 +455,13 @@ N1. ✅ `seed.sql` — mylący komentarz hasła (`Pracownik1!` → `Kapitan123!`
 - Render free tier: serwer usypia po 15 min bezczynności, pierwszy request trwa ~30s
 - APK (166MB) zbyt duży na git repo → dystrybucja przez GitHub Releases (limit 2GB per asset)
 - `gh` CLI zainstalowane (`winget install GitHub.cli`), zalogowane jako MichalPopo
+
+### Sesja 2026-03-20 — Gantt date pinning + archiwum ukończonych
+55. ✅ Gantt auto-pin `planned_start` — po obliczeniu harmonogramu, scheduler zapisuje daty do DB → zadania nie dryfują z dnia na dzień
+56. ✅ Gantt exclude done — ukończone zadania nie blokują capacity i nie pojawiają się w harmonogramie
+57. ✅ CompletedTasksPage — osobna strona `/completed` z archiwum ukończonych zadań (szukanie, filtr kategorii, statystyki, cofnij do aktywnych)
+58. ✅ Dashboard — ukończone zadania ukryte domyślnie, przycisk ✅ Zakończone w nawigacji
+59. ✅ Testy — poprawka async/await w scheduling.test.ts (pre-existing issue)
 ---
 
 ## Komendy

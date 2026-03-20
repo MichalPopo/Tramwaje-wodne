@@ -13,6 +13,7 @@ import TeamPage from './pages/TeamPage';
 import EngineHoursPage from './pages/EngineHoursPage';
 import TanksPage from './pages/TanksPage';
 import SettingsPage from './pages/SettingsPage';
+import CompletedTasksPage from './pages/CompletedTasksPage';
 import './index.css';
 
 function ProtectedRoute({ children, allowedRoles }: {
@@ -84,6 +85,11 @@ function AppRoutes() {
       <Route path="/gantt" element={
         <ProtectedRoute allowedRoles={['admin']}>
           <GanttPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/completed" element={
+        <ProtectedRoute allowedRoles={['admin']}>
+          <CompletedTasksPage />
         </ProtectedRoute>
       } />
       <Route path="/certificates" element={

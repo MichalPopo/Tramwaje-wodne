@@ -1,4 +1,4 @@
-import { queryAll, queryOne } from '../db/database.js';
+import { queryAll, queryOne, execute } from '../db/database.js';
 
 // --- Types ---
 
@@ -428,6 +428,9 @@ export async function resourceConstrainedSchedule(
      *   2. Global capacity not exceeded
      */
     function findEarliestSlot(earliestDay: number, taskHours: number, assigneeIds: number[]): number {
+        // Zero-duration tasks (e.g. completed) don't need a slot
+        if (taskHours <= 0) return earliestDay * HOURS_PER_DAY;
+
         let candidateDay = earliestDay;
         const maxDay = earliestDay + 365;
 
@@ -548,7 +551,7 @@ export async function getGanttData(filters: GanttFilters = {}): Promise<{
                t.weather_min_temp, t.weather_max_wind, t.weather_no_rain
         FROM tasks t
         LEFT JOIN ships s ON s.id = t.ship_id
-        WHERE 1=1
+        WHERE t.status != 'done'
     `;
     const taskParams: (string | number | null)[] = [];
 
@@ -646,7 +649,25 @@ export async function getGanttData(filters: GanttFilters = {}): Promise<{
         dag, topoOrder, durations, priorities, totalWorkers, taskAssigneeIds, plannedStarts,
     );
 
-    // 5. Assemble result
+    // 5. Auto-pin planned_start for tasks that don't have one yet
+    //    This prevents tasks from drifting each day (offset-based → absolute date)
+    for (const id of topoOrder) {
+        const row = taskMap.get(id)!;
+        if (row.planned_start) continue; // already pinned
+        const cpm = cpmNodes.get(id)!;
+        const startDay = Math.floor(cpm.early_start / HOURS_PER_DAY);
+        const pinnedDate = new Date(todayLocal);
+        pinnedDate.setDate(pinnedDate.getDate() + startDay);
+        const y = pinnedDate.getFullYear();
+        const m = String(pinnedDate.getMonth() + 1).padStart(2, '0');
+        const d = String(pinnedDate.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+        await execute('UPDATE tasks SET planned_start = ? WHERE id = ?', [dateStr, id]);
+        // Update local row so the response reflects the pinned date
+        row.planned_start = dateStr;
+    }
+
+    // 6. Assemble result
     let totalDuration = 0;
     for (const node of cpmNodes.values()) {
         if (node.early_finish > totalDuration) {
