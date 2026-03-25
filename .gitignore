@@ -8,3 +8,11 @@ dist/
 Thumbs.db
 *.wasm
 *.apk
+
+# AI development files (local only)
+AGENT_INSTRUCTIONS.md
+CACHE.md
+TASKS.md
+SETUP_GUIDE*.md
+prompt.md
+feature_map.md
